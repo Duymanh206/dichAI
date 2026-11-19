@@ -141,20 +141,80 @@ def find_uncovered_speech_gaps(
     return refined
 
 
+def smart_merge_short_subtitles(
+    subtitles: List[Dict[str, Any]],
+    max_merged_dur: float = 6.0,
+    max_gap: float = 1.1,
+    min_single_dur: float = 2.8
+) -> List[Dict[str, Any]]:
+    """
+    Intelligently merge choppy, fragmented short phrases into natural sentences.
+    Solves the problem where 1-second Chinese phrases become crowded, colliding Vietnamese subtitles.
+    """
+    if not subtitles:
+        return []
+
+    sorted_subs = sorted(subtitles, key=lambda s: float(s.get("start", 0.0)))
+    merged = []
+
+    for s in sorted_subs:
+        if not merged:
+            merged.append(dict(s))
+            continue
+
+        prev = merged[-1]
+        gap = round(float(s.get("start", 0.0)) - float(prev.get("end", 0.0)), 2)
+        prev_dur = round(float(prev.get("end", 0.0)) - float(prev.get("start", 0.0)), 2)
+        curr_dur = round(float(s.get("end", 0.0)) - float(s.get("start", 0.0)), 2)
+
+        # Merge conditions:
+        # 1. Close together (gap <= max_gap)
+        # 2. Combined duration stays within natural speaking limit (<= max_merged_dur)
+        # 3. At least one of the fragments is too short for natural speech (< min_single_dur)
+        can_merge = (gap <= max_gap) and (prev_dur + curr_dur + gap <= max_merged_dur) and (prev_dur < min_single_dur or curr_dur < min_single_dur)
+        
+        if can_merge:
+            prev["end"] = round(float(s.get("end", prev["end"])), 2)
+            
+            p_text = prev.get("text", "").strip()
+            s_text = s.get("text", "").strip()
+            prev["text"] = f"{p_text}，{s_text}" if p_text and s_text else (p_text or s_text)
+            
+            p_tr = prev.get("translated_text", "").strip().rstrip(".,;!?")
+            s_tr = s.get("translated_text", "").strip()
+            prev["translated_text"] = f"{p_tr}, {s_tr}" if p_tr and s_tr else (p_tr or s_tr)
+            
+            # Invalidate cached single audio since text has changed
+            prev["audio_file"] = ""
+            prev["audio_url"] = ""
+        else:
+            merged.append(dict(s))
+
+    for idx, item in enumerate(merged):
+        item["id"] = idx + 1
+
+    return merged
+
+
 def smart_decollide_and_align_subtitles(
     subtitles: List[Dict[str, Any]],
     total_video_duration: float,
     min_breath_gap: float = 0.30,
-    chars_per_second: float = 16.0
+    chars_per_second: float = 14.0,
+    merge_short: bool = True
 ) -> List[Dict[str, Any]]:
     """
     Resolve all timing collisions, overlapping speech, and rushed cadence:
-    1. Enforce a minimum breath buffer (0.30s) between adjacent dialogue blocks.
-    2. Dynamically expand or adjust timestamps so fast/long Vietnamese sentences have enough speaking time.
-    3. Ensure no two audio clips ever overlap or cut each other off.
+    1. Merge choppy short fragments into natural sentences with comfortable speaking time.
+    2. Enforce a minimum breath buffer (0.30s) between adjacent dialogue blocks.
+    3. Dynamically expand or adjust timestamps so fast/long Vietnamese sentences have enough speaking time.
+    4. Ensure no two audio clips ever overlap or cut each other off.
     """
     if not subtitles:
         return []
+
+    if merge_short:
+        subtitles = smart_merge_short_subtitles(subtitles)
 
     # Sort subtitles by start time
     sorted_subs = sorted(subtitles, key=lambda s: float(s.get("start", 0.0)))

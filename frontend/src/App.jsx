@@ -2067,11 +2067,11 @@ export default function App() {
                   type="button"
                   onClick={handleRunAiAlign}
                   disabled={isAligningAi || subtitles.length === 0}
-                  title="AI tự động căn khớp thoại: Chống dính câu, giãn nhịp thở 0.3s, cân bằng tốc độ đọc tự nhiên"
+                  title="AI tự động gộp các câu thoại ngắn vụn vặt và căn chỉnh nhịp thở tự nhiên, chống dính âm thanh"
                   className="flex items-center space-x-1 px-2.5 py-1 bg-[#00d2ff]/15 hover:bg-[#00d2ff]/25 text-[#00d2ff] rounded text-[11px] font-bold transition active:scale-95 border border-[#00d2ff]/40 disabled:opacity-50"
                 >
                   <Zap className={`w-3.5 h-3.5 ${isAligningAi ? 'animate-spin' : ''}`} />
-                  <span>{isAligningAi ? 'Đang căn khớp...' : '⚡ AI Khớp thoại (Chống dính)'}</span>
+                  <span>{isAligningAi ? 'Đang gộp & căn khớp...' : '✨ Gộp câu & Căn chỉnh chống dính'}</span>
                 </button>
 
                 <button
@@ -2093,19 +2093,6 @@ export default function App() {
                 >
                   <Bot className="w-3.5 h-3.5" />
                   <span>🤖 AI Copilot</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTrackMuted(p => ({ ...p, voice: !p.voice }))}
-                  title={trackMuted.voice ? "Đang TẮT lồng tiếng - Bấm để BẬT lại giọng đọc AI" : "Đang BẬT lồng tiếng - Bấm để TẮT (Chỉ xem phụ đề & văn bản dịch)"}
-                  className={`flex items-center space-x-1 px-2.5 py-1 rounded text-[11px] font-bold transition active:scale-95 border ${
-                    trackMuted.voice 
-                      ? 'bg-rose-950/50 text-rose-300 border-rose-700/60 shadow-sm' 
-                      : 'bg-[#00d2ff]/15 text-[#00d2ff] hover:bg-[#00d2ff]/25 border-[#00d2ff]/40'
-                  }`}
-                >
-                  {trackMuted.voice ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-[#00d2ff]" />}
-                  <span>{trackMuted.voice ? '🔇 Tắt lồng tiếng (Chỉ hiện Sub)' : '🔊 Lồng tiếng: Bật'}</span>
                 </button>
                 <div className="h-4 w-[1px] bg-[#383a44] mx-1" />
 

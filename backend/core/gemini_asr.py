@@ -343,6 +343,14 @@ def transcribe_with_gemini_sync(
             
         final_subtitles.append(s)
 
+    # Merge short, adjacent fragments into natural dialogue sentences
+    try:
+        from .smart_aligner import smart_merge_short_subtitles
+    except (ImportError, ValueError):
+        from smart_aligner import smart_merge_short_subtitles
+    
+    final_subtitles = smart_merge_short_subtitles(final_subtitles)
+
     # Assign final sequential IDs
     for idx, s in enumerate(final_subtitles):
         s["id"] = idx + 1
