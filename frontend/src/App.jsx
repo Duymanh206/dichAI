@@ -151,6 +151,7 @@ export default function App() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showPronounceModal, setShowPronounceModal] = useState(false);
   const [showVoicePicker, setShowVoicePicker] = useState(false);
+  const [showTtsDropdown, setShowTtsDropdown] = useState(false);
   const [languagePack, setLanguagePack] = useState({
     enabled: true,
     region: 'north',
@@ -1022,17 +1023,32 @@ export default function App() {
 
   const selectedSub = subtitles.find(s => s.id === selectedSubId);
 
+  const persistSubtitles = async (vId, updatedSubs) => {
+    if (!vId) return;
+    try {
+      await fetch('/api/subtitles/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_id: vId, subtitles: updatedSubs })
+      });
+    } catch (e) {
+      console.error('Failed to persist subtitles:', e);
+    }
+  };
+
   const handleToggleSubLock = (subId) => {
     const targetId = subId || selectedSubId;
     if (!targetId) return;
     const updated = subtitles.map(s => s.id === targetId ? { ...s, is_locked: !s.is_locked } : s);
     setVideos(prev => prev.map(v => v.id === activeVideoId ? { ...v, subtitles: updated } : v));
+    persistSubtitles(activeVideoId, updated);
   };
 
   const handleUpdateSelectedSubField = (field, val) => {
     if (!selectedSubId) return;
     const updated = subtitles.map(s => s.id === selectedSubId ? { ...s, [field]: val } : s);
     setVideos(prev => prev.map(v => v.id === activeVideoId ? { ...v, subtitles: updated } : v));
+    persistSubtitles(activeVideoId, updated);
   };
 
   // CapCut Voice & Subtitle Actions
@@ -1712,8 +1728,11 @@ export default function App() {
                     <span className="font-bold text-[10px] uppercase text-[#6b6e7a]">Hoàn tác:</span>
                     <div className="flex space-x-1">
                       <button
+                        type="button"
                         onClick={() => {
-                          setVideos(prev => prev.map(v => v.id === activeVideoId ? { ...v, subtitles: v.subtitles.map(s => ({ ...s, audio_file: null, audio_url: null })) } : v));
+                          const updated = subtitles.map(s => ({ ...s, audio_file: null, audio_url: null, audio_duration: null }));
+                          setVideos(prev => prev.map(v => v.id === activeVideoId ? { ...v, subtitles: updated } : v));
+                          persistSubtitles(activeVideoId, updated);
                           alert('Đã hoàn tác và làm mới toàn bộ file âm thanh lồng tiếng!');
                         }}
                         className="px-2 py-0.5 rounded bg-[#24252a] hover:bg-[#2e3038] text-[#c5c7ce] text-[10px]"
@@ -1721,8 +1740,11 @@ export default function App() {
                         Audio
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
-                          setVideos(prev => prev.map(v => v.id === activeVideoId ? { ...v, subtitles: v.subtitles.map(s => ({ ...s, translated_text: '' })) } : v));
+                          const updated = subtitles.map(s => ({ ...s, translated_text: '' }));
+                          setVideos(prev => prev.map(v => v.id === activeVideoId ? { ...v, subtitles: updated } : v));
+                          persistSubtitles(activeVideoId, updated);
                           alert('Đã hoàn tác toàn bộ bản dịch tiếng Việt!');
                         }}
                         className="px-2 py-0.5 rounded bg-[#24252a] hover:bg-[#2e3038] text-[#c5c7ce] text-[10px]"
@@ -1730,9 +1752,11 @@ export default function App() {
                         Bản dịch
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
                           if (confirm('Bạn có chắc muốn xóa sạch toàn bộ danh sách phụ đề hiện tại?')) {
                             setVideos(prev => prev.map(v => v.id === activeVideoId ? { ...v, subtitles: [] } : v));
+                            persistSubtitles(activeVideoId, []);
                           }
                         }}
                         className="px-2 py-0.5 rounded bg-[#24252a] hover:bg-rose-950/40 text-rose-400 text-[10px]"
@@ -1903,15 +1927,67 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Big Button: Tạo giọng cho tất cả */}
-                <button
-                  onClick={handleStartTts}
-                  disabled={!activeVideo || subtitles.length === 0 || (ttsProgress !== null)}
-                  className="w-full py-2.5 bg-gradient-to-r from-[#f5a623] to-[#e09415] hover:from-[#f7b036] hover:to-[#e89d1e] text-black font-extrabold text-xs rounded-md shadow-lg shadow-amber-500/20 flex items-center justify-center space-x-2 transition active:scale-95 disabled:opacity-50"
-                >
-                  <Volume2 className="w-4 h-4 text-black shrink-0" />
-                  <span>{ttsProgress ? 'Đang tạo giọng đọc...' : '🎙 Tạo giọng cho tất cả ˅'}</span>
-                </button>
+                {/* Big Button: Tạo giọng cho tất cả (Dual Mode with dropdown as in frame_019.jpg) */}
+                <div className="relative">
+                  <div className="flex rounded-md shadow-lg shadow-amber-500/20 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => handleStartTts(false)}
+                      disabled={!activeVideo || subtitles.length === 0 || (ttsProgress !== null)}
+                      className="flex-1 py-2.5 px-3 bg-gradient-to-r from-[#f5a623] to-[#e09415] hover:from-[#f7b036] hover:to-[#e89d1e] text-black font-extrabold text-xs flex items-center justify-center space-x-2 transition active:scale-95 disabled:opacity-50"
+                    >
+                      <Volume2 className="w-4 h-4 text-black shrink-0" />
+                      <span>{ttsProgress ? 'Đang tạo giọng đọc...' : '🎙 Tạo giọng cho tất cả'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowTtsDropdown(!showTtsDropdown)}
+                      disabled={!activeVideo || subtitles.length === 0 || (ttsProgress !== null)}
+                      className="px-2.5 bg-[#d48b13] hover:bg-[#c47f0e] text-black border-l border-black/20 flex items-center justify-center transition"
+                      title="Tùy chọn tạo giọng hàng loạt"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5 rotate-90" />
+                    </button>
+                  </div>
+
+                  {showTtsDropdown && (
+                    <div className="absolute bottom-full left-0 right-0 mb-1.5 bg-[#1a1b1f] border border-[#383a44] rounded-lg shadow-2xl p-1 z-30 space-y-1 animate-in fade-in zoom-in-95">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTtsDropdown(false);
+                          handleStartTts(true);
+                        }}
+                        className="w-full text-left p-2 rounded hover:bg-[#25262c] transition group"
+                      >
+                        <div className="flex items-center space-x-2 text-white text-xs font-bold group-hover:text-[#f5a623]">
+                          <Sparkles className="w-3.5 h-3.5 text-[#f5a623]" />
+                          <span>Tạo giọng tất cả ({videos.length})</span>
+                        </div>
+                        <div className="text-[10px] text-[#8b8d97] pl-5.5">
+                          {videos.length} video trong danh sách batch
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTtsDropdown(false);
+                          handleStartTts(false);
+                        }}
+                        className="w-full text-left p-2 rounded hover:bg-[#25262c] transition group border-t border-[#282a32]"
+                      >
+                        <div className="flex items-center space-x-2 text-white text-xs font-bold group-hover:text-[#00d2ff]">
+                          <Film className="w-3.5 h-3.5 text-[#00d2ff]" />
+                          <span>Chỉ video hiện tại</span>
+                        </div>
+                        <div className="text-[10px] text-[#8b8d97] pl-5.5 truncate max-w-[240px]">
+                          {activeVideo?.name || 'Video đang mở'}
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
