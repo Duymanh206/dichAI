@@ -52,6 +52,7 @@ export default function App() {
   const [ocrProgress, setOcrProgress] = useState(null);
 
   // Interactive Bounding Box Mode: 'ocr' or 'blur'
+  const [enableDrawing, setEnableDrawing] = useState(false);
   const [dragMode, setDragMode] = useState('ocr');
   const [isDrawing, setIsDrawing] = useState(false);
   const [dragStart, setDragStart] = useState(null);
@@ -514,7 +515,7 @@ export default function App() {
 
   // Interactive Drag-to-Draw Bounding Box on Video Canvas
   const handleOverlayMouseDown = (e) => {
-    if (!videoContainerRef.current) return;
+    if (!enableDrawing || !videoContainerRef.current) return;
     const rect = videoContainerRef.current.getBoundingClientRect();
     const xPct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const yPct = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
@@ -602,7 +603,7 @@ export default function App() {
     }
 
     // 2. Drag-to-draw new bounding box
-    if (!isDrawing || !dragStart) return;
+    if (!enableDrawing || !isDrawing || !dragStart) return;
     const currentX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const currentY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
 
@@ -1464,24 +1465,69 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Box mode switch */}
-                    <div className="pt-2 border-t border-[#24252a]">
-                      <div className="flex items-center justify-between text-[11px] text-[#8b8d97] mb-1">
-                        <span>Chế độ vẽ trên Video:</span>
-                        <div className="flex space-x-1">
-                          <button
-                            onClick={() => setDragMode('ocr')}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${dragMode === 'ocr' ? 'bg-[#00d2ff] text-black' : 'bg-[#24252a] text-[#8b8d97]'}`}
-                          >
-                            OCR Box
-                          </button>
-                          <button
-                            onClick={() => setDragMode('blur')}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${dragMode === 'blur' ? 'bg-[#f5a623] text-black' : 'bg-[#24252a] text-[#8b8d97]'}`}
-                          >
-                            Blur Box
-                          </button>
-                        </div>
+                    {/* Box mode switch with On/Off toggle */}
+                    <div className="pt-2 border-t border-[#24252a] space-y-2">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-semibold text-white flex items-center space-x-1.5">
+                          <Crop className="w-3.5 h-3.5 text-[#00d2ff]" />
+                          <span>Chế độ vẽ trên Video:</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setEnableDrawing(!enableDrawing)}
+                          className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition flex items-center space-x-1 ${
+                            enableDrawing 
+                              ? 'bg-[#10b981] text-black shadow-md' 
+                              : 'bg-[#24252a] text-[#8b8d97] hover:text-white border border-[#383a44]'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${enableDrawing ? 'bg-black animate-ping' : 'bg-rose-500'}`} />
+                          <span>{enableDrawing ? 'Đang BẬT' : 'Đang TẮT'}</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center space-x-1.5 bg-[#141518] p-1 rounded border border-[#24252a]">
+                        <button
+                          type="button"
+                          onClick={() => setEnableDrawing(false)}
+                          className={`flex-1 py-1 rounded text-[10px] font-bold transition ${
+                            !enableDrawing 
+                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow' 
+                              : 'text-[#8b8d97] hover:text-white'
+                          }`}
+                        >
+                          Tắt vẽ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setEnableDrawing(true); setDragMode('ocr'); }}
+                          className={`flex-1 py-1 rounded text-[10px] font-bold transition ${
+                            enableDrawing && dragMode === 'ocr' 
+                              ? 'bg-[#00d2ff] text-black shadow' 
+                              : 'text-[#8b8d97] hover:text-[#00d2ff]'
+                          }`}
+                        >
+                          Vẽ OCR
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setEnableDrawing(true); setDragMode('blur'); }}
+                          className={`flex-1 py-1 rounded text-[10px] font-bold transition ${
+                            enableDrawing && dragMode === 'blur' 
+                              ? 'bg-[#f5a623] text-black shadow' 
+                              : 'text-[#8b8d97] hover:text-[#f5a623]'
+                          }`}
+                        >
+                          Vẽ Blur
+                        </button>
+                      </div>
+                      
+                      <div className="text-[10px] text-[#8b8d97] leading-tight">
+                        {enableDrawing ? (
+                          <span className="text-[#10b981]">● Kéo chuột trên khung video để vẽ vùng {dragMode === 'ocr' ? 'nhận diện OCR' : 'xóa mờ Blur'}.</span>
+                        ) : (
+                          <span>Chế độ vẽ đã tắt: Bạn có thể nhấp chuột vào video để Play/Pause mà không sợ bị vẽ đè.</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1875,8 +1921,52 @@ export default function App() {
                 onMouseDown={handleOverlayMouseDown}
                 onMouseMove={handleOverlayMouseMove}
                 onMouseUp={handleOverlayMouseUp}
-                className="relative max-h-full max-w-full aspect-video bg-black rounded-lg overflow-hidden shadow-2xl flex items-center justify-center border border-[#24252a] cursor-crosshair"
+                className={`relative max-h-full max-w-full aspect-video bg-black rounded-lg overflow-hidden shadow-2xl flex items-center justify-center border border-[#24252a] ${
+                  enableDrawing ? 'cursor-crosshair' : 'cursor-default'
+                }`}
               >
+                {/* Floating Quick Drawing Mode Toggle on Video */}
+                <div className="absolute top-3 left-3 z-30 flex items-center space-x-1.5 bg-black/80 backdrop-blur-md px-2 py-1 rounded-lg border border-[#3b3d47] shadow-xl pointer-events-auto">
+                  <button
+                    type="button"
+                    onClick={() => setEnableDrawing(!enableDrawing)}
+                    className={`flex items-center space-x-1.5 px-2 py-0.5 rounded text-[10px] font-bold transition ${
+                      enableDrawing 
+                        ? 'bg-[#10b981] text-black shadow animate-pulse' 
+                        : 'bg-[#25262c] hover:bg-[#32343d] text-[#8b8d97] hover:text-white border border-[#3b3d47]'
+                    }`}
+                    title={enableDrawing ? 'Bấm để TẮT chế độ vẽ' : 'Bấm để BẬT chế độ vẽ khung trên video'}
+                  >
+                    <Crop className="w-3 h-3" />
+                    <span>{enableDrawing ? 'Vẽ vùng: BẬT' : 'Vẽ vùng: TẮT'}</span>
+                  </button>
+
+                  {enableDrawing && (
+                    <div className="flex items-center space-x-1 border-l border-[#3b3d47] pl-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setDragMode('ocr')}
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition ${
+                          dragMode === 'ocr' ? 'bg-[#00d2ff] text-black shadow' : 'bg-[#1c1d22] text-[#8b8d97] hover:text-white'
+                        }`}
+                        title="Vẽ vùng OCR chữ gốc"
+                      >
+                        OCR Box
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDragMode('blur')}
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition ${
+                          dragMode === 'blur' ? 'bg-[#f5a623] text-black shadow' : 'bg-[#1c1d22] text-[#8b8d97] hover:text-white'
+                        }`}
+                        title="Vẽ vùng che mờ chữ cũ"
+                      >
+                        Blur Box
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <video
                   ref={videoRef}
                   src={activeVideo.url}
@@ -1884,7 +1974,7 @@ export default function App() {
                   onLoadedMetadata={handleLoadedMetadata}
                   onClick={(e) => {
                     // Prevent toggle play when dragging
-                    if (!isDrawing) togglePlay();
+                    if (!isDrawing && !transformAction) togglePlay();
                   }}
                   className="w-full h-full object-contain pointer-events-auto"
                 />
