@@ -46,7 +46,7 @@ export default function App() {
 
   // ASR & OCR Settings
   const [asrEngine, setAsrEngine] = useState('gemini-audio'); // 'gemini-audio', 'pp-ocrv4', 'whisper'
-  const [showOcrBox, setShowOcrBox] = useState(true);
+  const [showOcrBox, setShowOcrBox] = useState(false);
   const [autoMerge, setAutoMerge] = useState(true);
   const [diarization, setDiarization] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(null);
@@ -1470,39 +1470,52 @@ export default function App() {
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="font-semibold text-white flex items-center space-x-1.5">
                           <Crop className="w-3.5 h-3.5 text-[#00d2ff]" />
-                          <span>Chế độ vẽ trên Video:</span>
+                          <span>Khung vẽ trên Video:</span>
                         </span>
                         <button
                           type="button"
-                          onClick={() => setEnableDrawing(!enableDrawing)}
+                          onClick={() => {
+                            const next = !(showOcrBox || enableDrawing || blurBox.enabled);
+                            setShowOcrBox(next);
+                            setEnableDrawing(next);
+                            setBlurBox(prev => ({ ...prev, enabled: next }));
+                          }}
                           className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition flex items-center space-x-1 ${
-                            enableDrawing 
-                              ? 'bg-[#10b981] text-black shadow-md' 
-                              : 'bg-[#24252a] text-[#8b8d97] hover:text-white border border-[#383a44]'
+                            showOcrBox || enableDrawing || blurBox.enabled
+                              ? 'bg-[#00d2ff] text-black shadow-md' 
+                              : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
                           }`}
                         >
-                          <span className={`w-1.5 h-1.5 rounded-full ${enableDrawing ? 'bg-black animate-ping' : 'bg-rose-500'}`} />
-                          <span>{enableDrawing ? 'Đang BẬT' : 'Đang TẮT'}</span>
+                          <span className={`w-1.5 h-1.5 rounded-full ${showOcrBox || enableDrawing || blurBox.enabled ? 'bg-black animate-ping' : 'bg-rose-500'}`} />
+                          <span>{showOcrBox || enableDrawing || blurBox.enabled ? 'Đang HIỆN' : 'Đã TẮT / ẨN'}</span>
                         </button>
                       </div>
 
                       <div className="flex items-center space-x-1.5 bg-[#141518] p-1 rounded border border-[#24252a]">
                         <button
                           type="button"
-                          onClick={() => setEnableDrawing(false)}
+                          onClick={() => {
+                            setShowOcrBox(false);
+                            setEnableDrawing(false);
+                            setBlurBox(prev => ({ ...prev, enabled: false }));
+                          }}
                           className={`flex-1 py-1 rounded text-[10px] font-bold transition ${
-                            !enableDrawing 
-                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow' 
+                            !showOcrBox && !enableDrawing && !blurBox.enabled 
+                              ? 'bg-rose-600 text-white shadow' 
                               : 'text-[#8b8d97] hover:text-white'
                           }`}
                         >
-                          Tắt vẽ
+                          ✕ Tắt & Ẩn khung
                         </button>
                         <button
                           type="button"
-                          onClick={() => { setEnableDrawing(true); setDragMode('ocr'); }}
+                          onClick={() => {
+                            setShowOcrBox(true);
+                            setEnableDrawing(true);
+                            setDragMode('ocr');
+                          }}
                           className={`flex-1 py-1 rounded text-[10px] font-bold transition ${
-                            enableDrawing && dragMode === 'ocr' 
+                            showOcrBox && dragMode === 'ocr' 
                               ? 'bg-[#00d2ff] text-black shadow' 
                               : 'text-[#8b8d97] hover:text-[#00d2ff]'
                           }`}
@@ -1511,9 +1524,13 @@ export default function App() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => { setEnableDrawing(true); setDragMode('blur'); }}
+                          onClick={() => {
+                            setBlurBox(prev => ({ ...prev, enabled: true }));
+                            setEnableDrawing(true);
+                            setDragMode('blur');
+                          }}
                           className={`flex-1 py-1 rounded text-[10px] font-bold transition ${
-                            enableDrawing && dragMode === 'blur' 
+                            blurBox.enabled && dragMode === 'blur' 
                               ? 'bg-[#f5a623] text-black shadow' 
                               : 'text-[#8b8d97] hover:text-[#f5a623]'
                           }`}
@@ -1523,10 +1540,10 @@ export default function App() {
                       </div>
                       
                       <div className="text-[10px] text-[#8b8d97] leading-tight">
-                        {enableDrawing ? (
-                          <span className="text-[#10b981]">● Kéo chuột trên khung video để vẽ vùng {dragMode === 'ocr' ? 'nhận diện OCR' : 'xóa mờ Blur'}.</span>
+                        {!showOcrBox && !enableDrawing && !blurBox.enabled ? (
+                          <span className="text-[#10b981]">✓ Đã tắt & ẩn toàn bộ khung vẽ: Video đang ở chế độ xem sạch.</span>
                         ) : (
-                          <span>Chế độ vẽ đã tắt: Bạn có thể nhấp chuột vào video để Play/Pause mà không sợ bị vẽ đè.</span>
+                          <span>Kéo chuột hoặc các điểm neo trên khung để chỉnh sửa vùng nhận diện.</span>
                         )}
                       </div>
                     </div>
@@ -1925,46 +1942,71 @@ export default function App() {
                   enableDrawing ? 'cursor-crosshair' : 'cursor-default'
                 }`}
               >
-                {/* Floating Quick Drawing Mode Toggle on Video */}
-                <div className="absolute top-3 left-3 z-30 flex items-center space-x-1.5 bg-black/80 backdrop-blur-md px-2 py-1 rounded-lg border border-[#3b3d47] shadow-xl pointer-events-auto">
+                {/* Floating Quick Controls on Video Canvas */}
+                <div className="absolute top-3 left-3 z-30 flex items-center space-x-1.5 bg-black/85 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-[#3b3d47] shadow-2xl pointer-events-auto">
+                  {/* Master View Mode: Clean view vs Edit frames */}
                   <button
                     type="button"
-                    onClick={() => setEnableDrawing(!enableDrawing)}
-                    className={`flex items-center space-x-1.5 px-2 py-0.5 rounded text-[10px] font-bold transition ${
-                      enableDrawing 
+                    onClick={() => {
+                      if (showOcrBox || enableDrawing || blurBox.enabled) {
+                        setShowOcrBox(false);
+                        setEnableDrawing(false);
+                        setBlurBox(prev => ({ ...prev, enabled: false }));
+                      } else {
+                        setShowOcrBox(true);
+                        setEnableDrawing(true);
+                        setBlurBox(prev => ({ ...prev, enabled: true }));
+                      }
+                    }}
+                    className={`flex items-center space-x-1 px-2.5 py-1 rounded text-[10px] font-bold transition ${
+                      !showOcrBox && !enableDrawing && !blurBox.enabled
                         ? 'bg-[#10b981] text-black shadow animate-pulse' 
-                        : 'bg-[#25262c] hover:bg-[#32343d] text-[#8b8d97] hover:text-white border border-[#3b3d47]'
+                        : 'bg-[#25262c] text-[#8b8d97] hover:text-white border border-[#3b3d47]'
                     }`}
-                    title={enableDrawing ? 'Bấm để TẮT chế độ vẽ' : 'Bấm để BẬT chế độ vẽ khung trên video'}
+                    title="Bấm để ẩn sạch tất cả các khung và xem video rõ nét"
                   >
-                    <Crop className="w-3 h-3" />
-                    <span>{enableDrawing ? 'Vẽ vùng: BẬT' : 'Vẽ vùng: TẮT'}</span>
+                    {!showOcrBox && !enableDrawing && !blurBox.enabled ? (
+                      <>
+                        <EyeOff className="w-3.5 h-3.5" />
+                        <span>Chế độ xem sạch: ĐANG BẬT</span>
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Ẩn tất cả khung</span>
+                      </>
+                    )}
                   </button>
 
-                  {enableDrawing && (
-                    <div className="flex items-center space-x-1 border-l border-[#3b3d47] pl-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setDragMode('ocr')}
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition ${
-                          dragMode === 'ocr' ? 'bg-[#00d2ff] text-black shadow' : 'bg-[#1c1d22] text-[#8b8d97] hover:text-white'
-                        }`}
-                        title="Vẽ vùng OCR chữ gốc"
-                      >
-                        OCR Box
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDragMode('blur')}
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition ${
-                          dragMode === 'blur' ? 'bg-[#f5a623] text-black shadow' : 'bg-[#1c1d22] text-[#8b8d97] hover:text-white'
-                        }`}
-                        title="Vẽ vùng che mờ chữ cũ"
-                      >
-                        Blur Box
-                      </button>
-                    </div>
-                  )}
+                  <div className="h-4 w-px bg-[#3b3d47]" />
+
+                  {/* Toggle OCR Box specifically */}
+                  <button
+                    type="button"
+                    onClick={() => setShowOcrBox(!showOcrBox)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition flex items-center space-x-1 ${
+                      showOcrBox 
+                        ? 'bg-[#00d2ff] text-black shadow' 
+                        : 'bg-[#202127] text-[#8b8d97] hover:text-[#00d2ff] border border-[#2b2c32]'
+                    }`}
+                    title={showOcrBox ? 'Bấm để TẮT / ẨN khung xanh OCR' : 'Bấm để BẬT / HIỆN khung xanh OCR'}
+                  >
+                    <span>Khung OCR: {showOcrBox ? 'BẬT' : 'TẮT'}</span>
+                  </button>
+
+                  {/* Toggle Blur Box specifically */}
+                  <button
+                    type="button"
+                    onClick={() => setBlurBox(prev => ({ ...prev, enabled: !prev.enabled }))}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition flex items-center space-x-1 ${
+                      blurBox.enabled 
+                        ? 'bg-[#f5a623] text-black shadow' 
+                        : 'bg-[#202127] text-[#8b8d97] hover:text-[#f5a623] border border-[#2b2c32]'
+                    }`}
+                    title={blurBox.enabled ? 'Bấm để TẮT / ẨN khung vàng làm mờ' : 'Bấm để BẬT / HIỆN khung vàng làm mờ'}
+                  >
+                    <span>Khung Mờ: {blurBox.enabled ? 'BẬT' : 'TẮT'}</span>
+                  </button>
                 </div>
 
                 <video
@@ -1991,10 +2033,20 @@ export default function App() {
                       height: `${cropBox.h_pct * 100}%`,
                     }}
                   >
-                    <span className="bg-[#00d2ff] text-black text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow pointer-events-none flex items-center space-x-1">
-                      <Move className="w-2.5 h-2.5" />
-                      <span>OCR Region (Kéo để di chuyển)</span>
-                    </span>
+                    <div className="flex items-center space-x-1">
+                      <span className="bg-[#00d2ff] text-black text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow pointer-events-none flex items-center space-x-1">
+                        <Move className="w-2.5 h-2.5" />
+                        <span>OCR Region</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setShowOcrBox(false); }}
+                        className="pointer-events-auto bg-black/80 hover:bg-rose-600 text-[#00d2ff] hover:text-white rounded px-1.5 py-0.5 text-[9px] font-bold transition border border-[#00d2ff]/40 hover:border-rose-500 shadow"
+                        title="Tắt và ẩn khung OCR này"
+                      >
+                        ✕ Tắt
+                      </button>
+                    </div>
                     <span className="text-[9px] text-[#00d2ff] bg-black/70 px-1 rounded font-mono pointer-events-none">
                       {Math.round(cropBox.w_pct * 100)}% x {Math.round(cropBox.h_pct * 100)}%
                     </span>
@@ -2031,9 +2083,19 @@ export default function App() {
                   >
                     {/* Top Header Controls Bar */}
                     <div className="flex items-center justify-between w-full pointer-events-none">
-                      <div className="flex items-center space-x-1 bg-black/80 px-1.5 py-0.5 rounded text-[9px] font-bold text-[#f5a623] border border-[#f5a623]/40">
-                        <Move className="w-2.5 h-2.5" />
-                        <span>XÓA PHỤ ĐỀ GỐC</span>
+                      <div className="flex items-center space-x-1">
+                        <div className="flex items-center space-x-1 bg-black/80 px-1.5 py-0.5 rounded text-[9px] font-bold text-[#f5a623] border border-[#f5a623]/40">
+                          <Move className="w-2.5 h-2.5" />
+                          <span>XÓA PHỤ ĐỀ GỐC</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setBlurBox(prev => ({ ...prev, enabled: false })); }}
+                          className="pointer-events-auto px-1.5 py-0.5 bg-rose-600/90 hover:bg-rose-600 text-white rounded text-[9px] font-bold transition border border-rose-500/50 shadow"
+                          title="Tắt và ẩn khung mờ này"
+                        >
+                          ✕ Tắt
+                        </button>
                       </div>
                       <div className="flex items-center space-x-1 pointer-events-auto">
                         <button
