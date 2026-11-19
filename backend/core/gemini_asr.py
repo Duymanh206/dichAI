@@ -15,9 +15,12 @@ for _p in [_curr_dir, _backend_dir]:
         sys.path.insert(0, _p)
 
 try:
-    from .ffmpeg_utils import BINARIES, get_video_info
-except (ImportError, ValueError):
-    from ffmpeg_utils import BINARIES, get_video_info
+    from backend.core.ffmpeg_utils import BINARIES, get_video_info
+except (ImportError, ModuleNotFoundError, ValueError):
+    try:
+        from core.ffmpeg_utils import BINARIES, get_video_info
+    except (ImportError, ModuleNotFoundError, ValueError):
+        from ffmpeg_utils import BINARIES, get_video_info
 
 def get_available_gemini_models(api_key: str) -> List[str]:
     """Query Google API directly to get the list of models that this exact key supports."""

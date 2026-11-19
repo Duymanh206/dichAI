@@ -1,6 +1,8 @@
 {
   "extraPaths": [
+    ".",
     "./backend",
-    "."
-  ]
+    "./backend/core"
+  ],
+  "reportMissingImports": "none"
 }

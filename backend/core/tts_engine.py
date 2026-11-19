@@ -14,11 +14,15 @@ for _p in [_curr_dir, _backend_dir]:
         sys.path.insert(0, _p)
 
 try:
-    from .ffmpeg_utils import BINARIES, get_video_info, adjust_audio_speed
-    from .smart_aligner import smart_decollide_and_align_subtitles, apply_broadcast_voice_mastering
-except (ImportError, ValueError):
-    from ffmpeg_utils import BINARIES, get_video_info, adjust_audio_speed
-    from smart_aligner import smart_decollide_and_align_subtitles, apply_broadcast_voice_mastering
+    from backend.core.ffmpeg_utils import BINARIES, get_video_info, adjust_audio_speed
+    from backend.core.smart_aligner import smart_decollide_and_align_subtitles, apply_broadcast_voice_mastering
+except (ImportError, ModuleNotFoundError, ValueError):
+    try:
+        from core.ffmpeg_utils import BINARIES, get_video_info, adjust_audio_speed
+        from core.smart_aligner import smart_decollide_and_align_subtitles, apply_broadcast_voice_mastering
+    except (ImportError, ModuleNotFoundError, ValueError):
+        from ffmpeg_utils import BINARIES, get_video_info, adjust_audio_speed
+        from smart_aligner import smart_decollide_and_align_subtitles, apply_broadcast_voice_mastering
 
 # Predefined available voices
 AVAILABLE_VOICES = [

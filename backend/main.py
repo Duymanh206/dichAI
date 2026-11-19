@@ -210,8 +210,8 @@ async def check_api_key(req: CheckKeyRequest):
 @app.post("/api/upload")
 async def upload_video(file: UploadFile = File(...)):
     file_id = str(uuid.uuid4())[:8]
-    ext = Path(file.filename).suffix or ".mp4"
-    save_filename = f"{file_id}_{file.filename}"
+    ext = Path(file.filename or "video.mp4").suffix or ".mp4"
+    save_filename = f"{file_id}_{file.filename or 'video.mp4'}"
     save_path = UPLOADS_DIR / save_filename
     
     with open(save_path, "wb") as buffer:

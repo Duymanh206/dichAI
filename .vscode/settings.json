@@ -1,10 +1,17 @@
 {
+  "python.defaultInterpreterPath": "C:\\Users\\FPT\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\python.exe",
   "python.analysis.extraPaths": [
+    ".",
     "./backend",
-    "."
+    "./backend/core"
   ],
   "python.autoComplete.extraPaths": [
+    ".",
     "./backend",
-    "."
-  ]
+    "./backend/core"
+  ],
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportMissingImports": "none"
+  }
 }

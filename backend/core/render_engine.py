@@ -12,9 +12,12 @@ for _p in [_curr_dir, _backend_dir]:
         sys.path.insert(0, _p)
 
 try:
-    from .ffmpeg_utils import BINARIES, get_video_info
-except (ImportError, ValueError):
-    from ffmpeg_utils import BINARIES, get_video_info
+    from backend.core.ffmpeg_utils import BINARIES, get_video_info
+except (ImportError, ModuleNotFoundError, ValueError):
+    try:
+        from core.ffmpeg_utils import BINARIES, get_video_info
+    except (ImportError, ModuleNotFoundError, ValueError):
+        from ffmpeg_utils import BINARIES, get_video_info
 
 def generate_ass_subtitle_file(
     subtitles: List[Dict[str, Any]],
