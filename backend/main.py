@@ -247,6 +247,7 @@ async def upload_video(file: UploadFile = File(...)):
 
 @app.get("/api/videos")
 def get_videos():
+    load_project_state()
     for v in PROJECT_STATE["videos"]:
         if not v.get("filmstrip") and os.path.exists(v.get("path", "")):
             try:
