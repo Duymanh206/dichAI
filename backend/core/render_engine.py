@@ -136,8 +136,10 @@ def build_filter_complex(
         bh = min(video_height - by, bh + pad_t + pad_b)
         
         # Build timeline enable expression based on subtitle timings
+        pad_head = float(blur_box.get("pad_start", blur_box.get("pad_head", 0.10)))
+        pad_tail = float(blur_box.get("pad_end", blur_box.get("pad_tail", 0.10)))
         if blur_box.get("sync_subtitles", True) and subtitles:
-            time_conditions = [f"between(t,{max(0, s['start']-0.1):.2f},{s['end']+0.1:.2f})" for s in subtitles]
+            time_conditions = [f"between(t,{max(0, s['start']-pad_head):.2f},{s['end']+pad_tail:.2f})" for s in subtitles]
             enable_expr = ":enable='" + "+".join(time_conditions) + "'"
         else:
             enable_expr = ""

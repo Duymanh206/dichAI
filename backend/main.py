@@ -21,18 +21,32 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 
-from core.ffmpeg_utils import get_video_info, extract_frame_at, generate_filmstrip
-from core.ocr_engine import extract_subtitles_from_video
-from core.gemini_asr import transcribe_with_gemini_sync
-from core.translation_engine import translate_subtitles_batch, PROMPT_STYLES
-from core.tts_engine import AVAILABLE_VOICES, generate_all_subtitles_tts, generate_single_tts
-from core.render_engine import render_project_video
-from core.smart_aligner import (
-    smart_decollide_and_align_subtitles,
-    detect_speech_intervals,
-    find_uncovered_speech_gaps,
-    recover_missing_dialogue_with_ai
-)
+try:
+    from backend.core.ffmpeg_utils import get_video_info, extract_frame_at, generate_filmstrip
+    from backend.core.ocr_engine import extract_subtitles_from_video
+    from backend.core.gemini_asr import transcribe_with_gemini_sync
+    from backend.core.translation_engine import translate_subtitles_batch, PROMPT_STYLES
+    from backend.core.tts_engine import AVAILABLE_VOICES, generate_all_subtitles_tts, generate_single_tts
+    from backend.core.render_engine import render_project_video
+    from backend.core.smart_aligner import (
+        smart_decollide_and_align_subtitles,
+        detect_speech_intervals,
+        find_uncovered_speech_gaps,
+        recover_missing_dialogue_with_ai
+    )
+except (ImportError, ModuleNotFoundError):
+    from core.ffmpeg_utils import get_video_info, extract_frame_at, generate_filmstrip
+    from core.ocr_engine import extract_subtitles_from_video
+    from core.gemini_asr import transcribe_with_gemini_sync
+    from core.translation_engine import translate_subtitles_batch, PROMPT_STYLES
+    from core.tts_engine import AVAILABLE_VOICES, generate_all_subtitles_tts, generate_single_tts
+    from core.render_engine import render_project_video
+    from core.smart_aligner import (
+        smart_decollide_and_align_subtitles,
+        detect_speech_intervals,
+        find_uncovered_speech_gaps,
+        recover_missing_dialogue_with_ai
+    )
 
 app = FastAPI(title="AutoSub Studio - Video Translation & Dubbing AI")
 

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, Pause, Volume2, Settings, Download, Upload, Scissors, RefreshCw, 
-  Layers, Check, ChevronDown, ChevronRight, Eye, EyeOff, Sparkles, 
-  MessageSquare, Mic, Sliders, Type, Palette, Search, Plus, Trash2, 
-  Film, X, Maximize2, SkipBack, SkipForward, ArrowRight, BookOpen, VolumeX,
-  Move, Crop, Wand2, CheckCircle2, AlertCircle, FileText, FolderOpen, ExternalLink,
-  Lock, Unlock, Edit2, PlayCircle, ZoomIn, ZoomOut, Bot, Zap
+  Check, ChevronRight, Eye, EyeOff, Sparkles, 
+  MessageSquare, Mic, Type, Search, Plus, Trash2, 
+  Film, X, SkipBack, ArrowRight, BookOpen, VolumeX,
+  Move, Crop, CheckCircle2, AlertCircle, FolderOpen,
+  Lock, Unlock, ZoomIn, ZoomOut, Bot, Zap
 } from 'lucide-react';
 
 export const VOICE_CATALOG = [
@@ -100,6 +100,8 @@ export default function App() {
     h_pct: 0.15,
     blur_radius: 38,
     opacity: 0.85,
+    pad_start: 0.10,
+    pad_end: 0.10,
     pad_top: 0,
     pad_bottom: 0,
     pad_left: 0,
@@ -140,6 +142,7 @@ export default function App() {
   const [leftTab, setLeftTab] = useState('subs'); // 'subs' (Phụ đề) or 'dub' (Thuyết minh)
   const [pipelineProgress, setPipelineProgress] = useState(null); // for 1-click Xử lý video
   const [activeRightTab, setActiveRightTab] = useState('subs'); // 'subs' (Danh sách phụ đề) or 'props' (Thuộc tính)
+  const [propertyTarget, setPropertyTarget] = useState('sub'); // 'sub' (PHỤ ĐỀ) or 'blur' (XÓA PHỤ ĐỀ)
   const [propsSubTab, setPropsSubTab] = useState('style'); // 'style' (Kiểu) or 'pos' (Vị trí)
   const [dubSubTab, setDubSubTab] = useState('single'); // 'single' (Một giọng) or 'diarize' (Phân vai)
   const [filterSubMode, setFilterSubMode] = useState('all'); // 'all', 'untranslated', 'attention', 'no_audio'
@@ -1018,6 +1021,19 @@ export default function App() {
   };
 
   const selectedSub = subtitles.find(s => s.id === selectedSubId);
+
+  const handleToggleSubLock = (subId) => {
+    const targetId = subId || selectedSubId;
+    if (!targetId) return;
+    const updated = subtitles.map(s => s.id === targetId ? { ...s, is_locked: !s.is_locked } : s);
+    setVideos(prev => prev.map(v => v.id === activeVideoId ? { ...v, subtitles: updated } : v));
+  };
+
+  const handleUpdateSelectedSubField = (field, val) => {
+    if (!selectedSubId) return;
+    const updated = subtitles.map(s => s.id === selectedSubId ? { ...s, [field]: val } : s);
+    setVideos(prev => prev.map(v => v.id === activeVideoId ? { ...v, subtitles: updated } : v));
+  };
 
   // CapCut Voice & Subtitle Actions
   const handleOpenEditSubModal = (sub, e) => {
@@ -2727,6 +2743,33 @@ export default function App() {
           {/* TAB 2: THUỘC TÍNH (PROPERTIES & STYLING & POSITION) */}
           {activeRightTab === 'style' && (
             <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Header with target toggle: [PHỤ ĐỀ] vs [XÓA PHỤ ĐỀ] */}
+              <div className="flex items-center justify-between px-3 py-2 bg-[#141518] border-b border-[#24252a] shrink-0">
+                <span className="text-xs font-bold uppercase tracking-wider text-white">THUỘC TÍNH</span>
+                <div className="flex items-center bg-[#1c1d22] p-0.5 rounded border border-[#2e303a]">
+                  <button
+                    onClick={() => setPropertyTarget('sub')}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded transition ${
+                      propertyTarget === 'sub'
+                        ? 'bg-[#f5a623] text-black shadow'
+                        : 'text-[#8b8d97] hover:text-white'
+                    }`}
+                  >
+                    PHỤ ĐỀ
+                  </button>
+                  <button
+                    onClick={() => setPropertyTarget('blur')}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded transition ${
+                      propertyTarget === 'blur'
+                        ? 'bg-[#f5a623] text-black shadow'
+                        : 'text-[#8b8d97] hover:text-white'
+                    }`}
+                  >
+                    XÓA PHỤ ĐỀ
+                  </button>
+                </div>
+              </div>
+
               {/* Sub-tabs: [Kiểu] & [Vị trí] */}
               <div className="flex bg-[#141518] p-1 border-b border-[#24252a] shrink-0">
                 <button
@@ -2737,7 +2780,7 @@ export default function App() {
                       : 'text-[#8b8d97] hover:text-white'
                   }`}
                 >
-                  Kiểu chữ & Bộ lọc
+                  Kiểu
                 </button>
                 <button
                   onClick={() => setPropsSubTab('pos')}
@@ -2747,20 +2790,91 @@ export default function App() {
                       : 'text-[#8b8d97] hover:text-white'
                   }`}
                 >
-                  Xóa sub & Vị trí
+                  Vị trí
                 </button>
               </div>
 
               <div className="flex-1 overflow-y-auto p-3.5 space-y-4 text-xs">
-                {propsSubTab === 'style' ? (
-                  <>
-                    {/* 1. Kiểu chữ phụ đề */}
-                    <div>
-                      <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#f5a623] mb-2">
-                        Kiểu chữ phụ đề (Subtitle Style)
-                      </h4>
-                      
-                      <div className="space-y-2.5">
+                {propertyTarget === 'sub' ? (
+                  propsSubTab === 'style' ? (
+                    <>
+                      {/* Active Subtitle Custom Texts & Lock */}
+                      {selectedSub && (
+                        <div className="bg-[#141518] p-2.5 rounded-lg border border-[#2b2c32] space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-[#f5a623]">Câu #{selectedSub.id} ({selectedSub.start}s - {selectedSub.end}s)</span>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSubLock(selectedSub.id)}
+                              className={`text-[9px] px-2 py-0.5 rounded font-bold flex items-center space-x-1 transition ${selectedSub.is_locked ? 'bg-[#f5a623] text-black' : 'bg-[#24252a] text-[#8b8d97] hover:text-white border border-[#383a44]'}`}
+                            >
+                              <Lock className="w-2.5 h-2.5" />
+                              <span>{selectedSub.is_locked ? 'Đã duyệt & khoá' : 'Duyệt & khoá câu này'}</span>
+                            </button>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-[#8b8d97] block mb-0.5">BẢN PHỤ ĐỀ RIÊNG</label>
+                            <input
+                              type="text"
+                              value={selectedSub.custom_sub || ''}
+                              onChange={e => handleUpdateSelectedSubField('custom_sub', e.target.value)}
+                              placeholder="Trống = dùng bản dịch chuẩn"
+                              className="w-full bg-[#1c1d22] border border-[#2b2c32] rounded px-2 py-1 text-xs text-white outline-none focus:border-[#f5a623]"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-[#8b8d97] block mb-0.5">BẢN LỒNG TIẾNG RIÊNG</label>
+                            <input
+                              type="text"
+                              value={selectedSub.custom_voice || ''}
+                              onChange={e => handleUpdateSelectedSubField('custom_voice', e.target.value)}
+                              placeholder="Trống = dùng bản dịch chuẩn"
+                              className="w-full bg-[#1c1d22] border border-[#2b2c32] rounded px-2 py-1 text-xs text-white outline-none focus:border-[#f5a623]"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 1. Kiểu chữ mẫu (Grid of stylish presets) */}
+                      <div>
+                        <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#f5a623] mb-2">
+                          KIỂU CHỮ MẪU
+                        </h4>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {[
+                            { label: 'Vàng viền', color: '#FFE128', outline: '#000000', width: 2 },
+                            { label: 'Trắng viền', color: '#FFFFFF', outline: '#000000', width: 2 },
+                            { label: 'Xanh Neon', color: '#00FFFF', outline: '#000000', width: 2 },
+                            { label: 'Hồng Douyin', color: '#FF2A7A', outline: '#FFFFFF', width: 2 },
+                            { label: 'Cam Rực', color: '#FF8800', outline: '#000000', width: 2 },
+                            { label: 'Xanh Lá', color: '#00E676', outline: '#000000', width: 2 },
+                            { label: 'Vàng Kim', color: '#FFD700', outline: '#000000', width: 3 },
+                            { label: 'Đỏ Đậm', color: '#FF1744', outline: '#FFFFFF', width: 2 },
+                            { label: 'Tím Khói', color: '#D946EF', outline: '#000000', width: 2 },
+                            { label: 'Xanh Biển', color: '#38BDF8', outline: '#000000', width: 2 },
+                            { label: 'Trắng Trơn', color: '#FFFFFF', outline: 'transparent', width: 0 },
+                            { label: 'Vàng Comic', color: '#FACC15', outline: '#000000', width: 3 }
+                          ].map((preset, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => setSubStyle({ ...subStyle, color: preset.color, outline_color: preset.outline, outline_width: preset.width })}
+                              className="p-1.5 rounded border border-[#2b2c32] bg-[#141518] hover:border-[#f5a623] text-center transition flex flex-col items-center justify-center"
+                            >
+                              <span 
+                                className="font-extrabold text-[12px] block leading-tight" 
+                                style={{ color: preset.color, textShadow: preset.width > 0 ? `0 0 2px ${preset.outline}` : 'none' }}
+                              >
+                                Aa
+                              </span>
+                              <span className="text-[8px] text-[#8b8d97] block mt-0.5 truncate max-w-full">{preset.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Font Parameters */}
+                      <div className="space-y-2.5 pt-1">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <label className="text-[11px] text-[#8b8d97] block mb-1">Cỡ chữ (px)</label>
@@ -2782,6 +2896,7 @@ export default function App() {
                               <option value="Montserrat">Montserrat</option>
                               <option value="Roboto">Roboto</option>
                               <option value="Impact">Impact</option>
+                              <option value="Be Vietnam Pro">Be Vietnam Pro</option>
                             </select>
                           </div>
                         </div>
@@ -2804,35 +2919,6 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Preset Badges */}
-                        <div>
-                          <label className="text-[11px] text-[#8b8d97] block mb-1">Mẫu kiểu chữ có sẵn</label>
-                          <div className="grid grid-cols-3 gap-1.5">
-                            {[
-                              { label: 'Vàng viền đen', color: '#FFE128', outline: '#000000' },
-                              { label: 'Trắng viền đen', color: '#FFFFFF', outline: '#000000' },
-                              { label: 'Xanh Neon', color: '#00FFFF', outline: '#000000' },
-                              { label: 'Hồng Douyin', color: '#FF2A7A', outline: '#FFFFFF' },
-                              { label: 'Cam Rực Rỡ', color: '#FF8800', outline: '#000000' },
-                              { label: 'Xanh Lá', color: '#00E676', outline: '#000000' }
-                            ].map((preset, i) => (
-                              <button
-                                key={i}
-                                onClick={() => setSubStyle({ ...subStyle, color: preset.color, outline_color: preset.outline })}
-                                className="p-1.5 rounded border border-[#2b2c32] bg-[#141518] hover:border-[#f5a623] text-center transition"
-                              >
-                                <span 
-                                  className="font-bold text-[11px] block" 
-                                  style={{ color: preset.color, textShadow: `0 0 2px ${preset.outline}` }}
-                                >
-                                  Aa
-                                </span>
-                                <span className="text-[9px] text-[#8b8d97] block mt-0.5 truncate">{preset.label}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
                         {/* Outline Width */}
                         <div>
                           <div className="flex justify-between text-[11px] mb-1">
@@ -2842,7 +2928,7 @@ export default function App() {
                           <input
                             type="range"
                             min="0"
-                            max="5"
+                            max="6"
                             step="1"
                             value={subStyle.outline_width}
                             onChange={e => setSubStyle({ ...subStyle, outline_width: parseInt(e.target.value) })}
@@ -2850,228 +2936,210 @@ export default function App() {
                           />
                         </div>
 
-                        {/* SECTION: VỊ TRÍ & XÊ DỊCH PHỤ ĐỀ */}
-                        <div className="pt-2.5 border-t border-[#24252a] space-y-2.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-[#f5a623] flex items-center space-x-1">
-                              <Move className="w-3.5 h-3.5" />
-                              <span>Vị trí & Xê dịch Phụ đề</span>
-                            </span>
-                            <span className="text-[9px] bg-[#f5a623]/20 text-[#f5a623] px-1.5 py-0.5 rounded font-mono font-bold">
-                              X: {Math.round((subStyle.pos_x_pct ?? 0.50) * 100)}% | Y: {Math.round((subStyle.pos_y_pct ?? 0.88) * 100)}%
-                            </span>
-                          </div>
-
-                          <div className="bg-[#141518] p-2 rounded border border-[#2b2c32] text-[10px] text-[#8b8d97] flex items-center justify-between">
-                            <div className="flex items-center space-x-1.5">
-                              <span className="text-base leading-none">💡</span>
-                              <span>Kéo trực tiếp dòng chữ trên video</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setShowPosPreview(!showPosPreview)}
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold border transition ${
-                                showPosPreview
-                                  ? 'bg-[#f5a623] text-black border-[#f5a623]'
-                                  : 'bg-[#20222a] text-[#c5c7ce] hover:text-white border-[#3b3d48]'
-                              }`}
-                              title="Bật/Tắt hiển thị khung chữ mẫu khi tạm dừng video để dễ kéo xê dịch"
-                            >
-                              {showPosPreview ? '✓ Đang bật mẫu' : 'Bật mẫu căn'}
-                            </button>
-                          </div>
-
-                          {/* Quick Position Presets */}
-                          <div>
-                            <label className="text-[10px] text-[#8b8d97] block mb-1">Vị trí nhanh (Presets):</label>
-                            <div className="grid grid-cols-4 gap-1">
-                              <button
-                                type="button"
-                                onClick={() => setSubStyle(prev => ({ ...prev, pos_x_pct: 0.50, pos_y_pct: 0.88, margin_v: 42 }))}
-                                className="py-1 px-1 bg-[#1c1d22] hover:bg-[#25262c] text-[#c5c7ce] hover:text-[#f5a623] rounded text-[10px] font-medium border border-[#2e303a] transition"
-                              >
-                                ⬇ Đáy (Chuẩn)
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setSubStyle(prev => ({ ...prev, pos_x_pct: 0.50, pos_y_pct: 0.50, margin_v: 180 }))}
-                                className="py-1 px-1 bg-[#1c1d22] hover:bg-[#25262c] text-[#c5c7ce] hover:text-[#f5a623] rounded text-[10px] font-medium border border-[#2e303a] transition"
-                              >
-                                ↕ Giữa
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setSubStyle(prev => ({ ...prev, pos_x_pct: 0.50, pos_y_pct: 0.12, margin_v: 320 }))}
-                                className="py-1 px-1 bg-[#1c1d22] hover:bg-[#25262c] text-[#c5c7ce] hover:text-[#f5a623] rounded text-[10px] font-medium border border-[#2e303a] transition"
-                              >
-                                ⬆ Đỉnh
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (blurBox) {
-                                    const blurCenterY = +(blurBox.y_pct + blurBox.h_pct / 2).toFixed(3);
-                                    setSubStyle(prev => ({ ...prev, pos_x_pct: 0.50, pos_y_pct: blurCenterY }));
-                                  }
-                                }}
-                                className="py-1 px-1 bg-[#1c1d22] hover:bg-[#25262c] text-[#00d2ff] rounded text-[10px] font-medium border border-[#00d2ff]/40 transition"
-                                title="Căn chữ nằm khớp ngay trong khung xóa mờ phụ đề cũ"
-                              >
-                                🎯 Khung mờ
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* D-Pad Precision Step Shift */}
-                          <div>
-                            <div className="flex justify-between items-center text-[10px] text-[#8b8d97] mb-1">
-                              <span>Tinh chỉnh từng bước:</span>
-                              <button
-                                type="button"
-                                onClick={() => setSubStyle(prev => ({ ...prev, pos_x_pct: 0.50 }))}
-                                className="text-[#00d2ff] hover:underline"
-                              >
-                                Căn giữa X
-                              </button>
-                            </div>
-                            <div className="flex items-center justify-center space-x-1">
-                              <button
-                                type="button"
-                                onClick={() => setSubStyle(prev => ({ ...prev, pos_x_pct: Math.max(0.08, +((prev.pos_x_pct ?? 0.5) - 0.02).toFixed(3)) }))}
-                                className="px-2 py-1 bg-[#20222a] hover:bg-[#2a2d38] text-white rounded text-[11px] font-bold border border-[#353846] transition"
-                                title="Nhích sang trái 2%"
-                              >
-                                ◄ Trái
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setSubStyle(prev => ({ ...prev, pos_y_pct: Math.max(0.05, +((prev.pos_y_pct ?? 0.88) - 0.02).toFixed(3)) }))}
-                                className="px-2 py-1 bg-[#20222a] hover:bg-[#2a2d38] text-white rounded text-[11px] font-bold border border-[#353846] transition"
-                                title="Nhích lên trên 2%"
-                              >
-                                ▲ Lên
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setSubStyle(prev => ({ ...prev, pos_y_pct: Math.min(0.96, +((prev.pos_y_pct ?? 0.88) + 0.02).toFixed(3)) }))}
-                                className="px-2 py-1 bg-[#20222a] hover:bg-[#2a2d38] text-white rounded text-[11px] font-bold border border-[#353846] transition"
-                                title="Nhích xuống dưới 2%"
-                              >
-                                ▼ Xuống
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setSubStyle(prev => ({ ...prev, pos_x_pct: Math.min(0.92, +((prev.pos_x_pct ?? 0.5) + 0.02).toFixed(3)) }))}
-                                className="px-2 py-1 bg-[#20222a] hover:bg-[#2a2d38] text-white rounded text-[11px] font-bold border border-[#353846] transition"
-                                title="Nhích sang phải 2%"
-                              >
-                                ► Phải
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Continuous Vertical Slider (Y) */}
-                          <div>
-                            <div className="flex justify-between text-[11px] mb-1">
-                              <span className="text-[#8b8d97]">Vị trí dọc (Y - Lên / Xuống):</span>
-                              <span className="text-[#f5a623] font-bold font-mono">{Math.round((subStyle.pos_y_pct ?? 0.88) * 100)}%</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="0.05"
-                              max="0.96"
-                              step="0.01"
-                              value={subStyle.pos_y_pct ?? 0.88}
-                              onChange={e => setSubStyle({ ...subStyle, pos_y_pct: parseFloat(e.target.value) })}
-                              className="w-full accent-[#f5a623] cursor-pointer"
-                            />
-                          </div>
-
-                          {/* Continuous Horizontal Slider (X) */}
-                          <div>
-                            <div className="flex justify-between text-[11px] mb-1">
-                              <span className="text-[#8b8d97]">Vị trí ngang (X - Trái / Phải):</span>
-                              <span className="text-[#f5a623] font-bold font-mono">{Math.round((subStyle.pos_x_pct ?? 0.50) * 100)}%</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="0.10"
-                              max="0.90"
-                              step="0.01"
-                              value={subStyle.pos_x_pct ?? 0.50}
-                              onChange={e => setSubStyle({ ...subStyle, pos_x_pct: parseFloat(e.target.value) })}
-                              className="w-full accent-[#f5a623] cursor-pointer"
-                            />
-                          </div>
-
-                          {/* Box Width Slider */}
-                          <div>
-                            <div className="flex justify-between text-[11px] mb-1">
-                              <span className="text-[#8b8d97]">Độ rộng khung chữ (Max Width):</span>
-                              <span className="text-[#f5a623] font-bold font-mono">{Math.round((subStyle.box_w_pct ?? 0.88) * 100)}%</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="0.40"
-                              max="0.98"
-                              step="0.02"
-                              value={subStyle.box_w_pct ?? 0.88}
-                              onChange={e => setSubStyle({ ...subStyle, box_w_pct: parseFloat(e.target.value) })}
-                              className="w-full accent-[#f5a623] cursor-pointer"
-                            />
-                          </div>
+                        {/* Bộ lọc màu hậu phim */}
+                        <div className="pt-2 border-t border-[#24252a]">
+                          <label className="text-[11px] text-[#8b8d97] block mb-1">Bộ lọc hậu phim (Color Filter)</label>
+                          <select
+                            value={colorFilter}
+                            onChange={e => setColorFilter(e.target.value)}
+                            className="w-full bg-[#141518] border border-[#2b2c32] rounded px-2 py-1.5 text-xs text-white outline-none focus:border-[#f5a623]"
+                          >
+                            <option value="none">Gốc (Không áp dụng)</option>
+                            <option value="cinematic">Cinematic (Điện ảnh sâu lắng)</option>
+                            <option value="vivid">Rực rỡ (Tăng tương phản & màu sắc)</option>
+                            <option value="warm">Ấm áp (Tone vàng ấm áp)</option>
+                            <option value="cool">Mát lạnh (Tone xanh phim Âu Mỹ)</option>
+                            <option value="vintage">Vintage (Cổ điển hoài niệm)</option>
+                          </select>
                         </div>
                       </div>
-                    </div>
-
-                    {/* 2. Bộ lọc hậu phim (Video Color Filters) */}
-                    <div className="pt-3 border-t border-[#24252a]">
-                      <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#f5a623] mb-2">
-                        Bộ lọc hậu phim (Color Filter)
-                      </h4>
-                      <select
-                        value={colorFilter}
-                        onChange={e => setColorFilter(e.target.value)}
-                        className="w-full bg-[#141518] border border-[#2b2c32] rounded px-2 py-1.5 text-xs text-white outline-none focus:border-[#f5a623]"
-                      >
-                        <option value="none">Gốc (Không áp dụng)</option>
-                        <option value="cinematic">Cinematic (Điện ảnh sâu lắng)</option>
-                        <option value="vivid">Rực rỡ (Tăng tương phản & màu sắc)</option>
-                        <option value="warm">Ấm áp (Tone vàng ấm áp)</option>
-                        <option value="cool">Mát lạnh (Tone xanh phim Âu Mỹ)</option>
-                        <option value="vintage">Vintage (Cổ điển hoài niệm)</option>
-                      </select>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    {/* VỊ TRÍ & XÓA SUBTITLE REMOVAL */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#f5a623] flex items-center space-x-1">
-                          <Crop className="w-3.5 h-3.5" />
-                          <span>Xóa phụ đề gốc (Subtitle Removal)</span>
-                        </h4>
-                        <span className="text-[9px] bg-[#f5a623]/20 text-[#f5a623] px-1.5 py-0.5 rounded font-bold">
-                          8 Điểm Kéo
+                    </>
+                  ) : (
+                    /* propertyTarget === 'sub' && propsSubTab === 'pos' */
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#f5a623] flex items-center space-x-1">
+                          <Move className="w-3.5 h-3.5" />
+                          <span>Vị trí & Xê dịch Phụ đề</span>
+                        </span>
+                        <span className="text-[9px] bg-[#f5a623]/20 text-[#f5a623] px-1.5 py-0.5 rounded font-mono font-bold">
+                          X: {Math.round((subStyle.pos_x_pct ?? 0.50) * 100)}% | Y: {Math.round((subStyle.pos_y_pct ?? 0.88) * 100)}%
                         </span>
                       </div>
 
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between bg-[#141518] p-2 rounded border border-[#24252a]">
-                          <span className="text-[#c5c7ce] text-xs font-medium">Bật làm mờ phụ đề cũ</span>
-                          <input
-                            type="checkbox"
-                            checked={blurBox.enabled}
-                            onChange={e => setBlurBox({ ...blurBox, enabled: e.target.checked })}
-                            className="accent-[#f5a623] w-4 h-4 cursor-pointer"
-                          />
+                      <div className="bg-[#141518] p-2 rounded border border-[#2b2c32] text-[10px] text-[#8b8d97] flex items-center justify-between">
+                        <div className="flex items-center space-x-1.5">
+                          <span className="text-base leading-none">💡</span>
+                          <span>Kéo trực tiếp dòng chữ trên video</span>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowPosPreview(!showPosPreview)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border transition ${
+                            showPosPreview
+                              ? 'bg-[#f5a623] text-black border-[#f5a623]'
+                              : 'bg-[#20222a] text-[#c5c7ce] hover:text-white border-[#3b3d48]'
+                          }`}
+                          title="Bật/Tắt hiển thị khung chữ mẫu khi tạm dừng video để dễ kéo xê dịch"
+                        >
+                          {showPosPreview ? '✓ Đang bật mẫu' : 'Bật mẫu căn'}
+                        </button>
+                      </div>
 
-                        <div className="flex items-center justify-between bg-[#141518] p-2 rounded border border-[#24252a]">
+                      {/* Quick Position Presets */}
+                      <div>
+                        <label className="text-[10px] text-[#8b8d97] block mb-1">Vị trí nhanh (Presets):</label>
+                        <div className="grid grid-cols-4 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setSubStyle(prev => ({ ...prev, pos_x_pct: 0.50, pos_y_pct: 0.88, margin_v: 42 }))}
+                            className="py-1 px-1 bg-[#1c1d22] hover:bg-[#25262c] text-[#c5c7ce] hover:text-[#f5a623] rounded text-[10px] font-medium border border-[#2e303a] transition"
+                          >
+                            ⬇ Đáy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSubStyle(prev => ({ ...prev, pos_x_pct: 0.50, pos_y_pct: 0.50, margin_v: 180 }))}
+                            className="py-1 px-1 bg-[#1c1d22] hover:bg-[#25262c] text-[#c5c7ce] hover:text-[#f5a623] rounded text-[10px] font-medium border border-[#2e303a] transition"
+                          >
+                            ↕ Giữa
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSubStyle(prev => ({ ...prev, pos_x_pct: 0.50, pos_y_pct: 0.12, margin_v: 320 }))}
+                            className="py-1 px-1 bg-[#1c1d22] hover:bg-[#25262c] text-[#c5c7ce] hover:text-[#f5a623] rounded text-[10px] font-medium border border-[#2e303a] transition"
+                          >
+                            ⬆ Đỉnh
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (blurBox) {
+                                const blurCenterY = +(blurBox.y_pct + blurBox.h_pct / 2).toFixed(3);
+                                setSubStyle(prev => ({ ...prev, pos_x_pct: 0.50, pos_y_pct: blurCenterY }));
+                              }
+                            }}
+                            className="py-1 px-1 bg-[#1c1d22] hover:bg-[#25262c] text-[#00d2ff] rounded text-[10px] font-medium border border-[#00d2ff]/40 transition"
+                            title="Căn chữ nằm khớp ngay trong khung xóa mờ phụ đề cũ"
+                          >
+                            🎯 Khung mờ
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* D-Pad Precision Step Shift */}
+                      <div>
+                        <div className="flex justify-between items-center text-[10px] text-[#8b8d97] mb-1">
+                          <span>Tinh chỉnh từng bước:</span>
+                          <button
+                            type="button"
+                            onClick={() => setSubStyle(prev => ({ ...prev, pos_x_pct: 0.50 }))}
+                            className="text-[#00d2ff] hover:underline"
+                          >
+                            Căn giữa X
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-center space-x-1">
+                          <button
+                            type="button"
+                            onClick={() => setSubStyle(prev => ({ ...prev, pos_x_pct: Math.max(0.08, +((prev.pos_x_pct ?? 0.5) - 0.02).toFixed(3)) }))}
+                            className="px-2 py-1 bg-[#20222a] hover:bg-[#2a2d38] text-white rounded text-[11px] font-bold border border-[#353846] transition"
+                          >
+                            ◄ Trái
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSubStyle(prev => ({ ...prev, pos_y_pct: Math.max(0.05, +((prev.pos_y_pct ?? 0.88) - 0.02).toFixed(3)) }))}
+                            className="px-2 py-1 bg-[#20222a] hover:bg-[#2a2d38] text-white rounded text-[11px] font-bold border border-[#353846] transition"
+                          >
+                            ▲ Lên
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSubStyle(prev => ({ ...prev, pos_y_pct: Math.min(0.96, +((prev.pos_y_pct ?? 0.88) + 0.02).toFixed(3)) }))}
+                            className="px-2 py-1 bg-[#20222a] hover:bg-[#2a2d38] text-white rounded text-[11px] font-bold border border-[#353846] transition"
+                          >
+                            ▼ Xuống
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSubStyle(prev => ({ ...prev, pos_x_pct: Math.min(0.92, +((prev.pos_x_pct ?? 0.5) + 0.02).toFixed(3)) }))}
+                            className="px-2 py-1 bg-[#20222a] hover:bg-[#2a2d38] text-white rounded text-[11px] font-bold border border-[#353846] transition"
+                          >
+                            ► Phải
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Continuous Sliders */}
+                      <div>
+                        <div className="flex justify-between text-[11px] mb-1">
+                          <span className="text-[#8b8d97]">Vị trí dọc (Y - Lên / Xuống):</span>
+                          <span className="text-[#f5a623] font-bold font-mono">{Math.round((subStyle.pos_y_pct ?? 0.88) * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.05"
+                          max="0.96"
+                          step="0.01"
+                          value={subStyle.pos_y_pct ?? 0.88}
+                          onChange={e => setSubStyle({ ...subStyle, pos_y_pct: parseFloat(e.target.value) })}
+                          className="w-full accent-[#f5a623] cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-[11px] mb-1">
+                          <span className="text-[#8b8d97]">Vị trí ngang (X - Trái / Phải):</span>
+                          <span className="text-[#f5a623] font-bold font-mono">{Math.round((subStyle.pos_x_pct ?? 0.50) * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.10"
+                          max="0.90"
+                          step="0.01"
+                          value={subStyle.pos_x_pct ?? 0.50}
+                          onChange={e => setSubStyle({ ...subStyle, pos_x_pct: parseFloat(e.target.value) })}
+                          className="w-full accent-[#f5a623] cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-[11px] mb-1">
+                          <span className="text-[#8b8d97]">Độ rộng khung chữ (Max Width):</span>
+                          <span className="text-[#f5a623] font-bold font-mono">{Math.round((subStyle.box_w_pct ?? 0.88) * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.40"
+                          max="0.98"
+                          step="0.02"
+                          value={subStyle.box_w_pct ?? 0.88}
+                          onChange={e => setSubStyle({ ...subStyle, box_w_pct: parseFloat(e.target.value) })}
+                          className="w-full accent-[#f5a623] cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  /* propertyTarget === 'blur' (XÓA PHỤ ĐỀ GỐC - EXACT EZMAXSUB SPEC) */
+                  propsSubTab === 'style' ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between bg-[#141518] p-2 rounded border border-[#24252a]">
+                        <span className="text-[#c5c7ce] text-xs font-medium">Bật làm mờ phụ đề cũ</span>
+                        <input
+                          type="checkbox"
+                          checked={blurBox.enabled}
+                          onChange={e => setBlurBox({ ...blurBox, enabled: e.target.checked })}
+                          className="accent-[#f5a623] w-4 h-4 cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="bg-[#141518] p-2.5 rounded border border-[#24252a] space-y-2">
+                        <div className="flex items-center justify-between">
                           <div>
-                            <span className="text-[#c5c7ce] text-xs font-medium block">Đồng bộ theo phụ đề</span>
-                            <span className="text-[10px] text-[#8b8d97]">Chỉ làm mờ khi có thoại</span>
+                            <span className="text-[#c5c7ce] text-xs font-semibold block">Đồng bộ theo phụ đề</span>
+                            <span className="text-[10px] text-[#8b8d97]">Chỉ hiển thị mờ khi có thoại</span>
                           </div>
                           <input
                             type="checkbox"
@@ -3081,114 +3149,219 @@ export default function App() {
                           />
                         </div>
 
-                        <div>
-                          <label className="text-[11px] text-[#8b8d97] block mb-1">Kiểu che mờ phụ đề cũ</label>
-                          <select
-                            value={blurBox.type}
-                            onChange={e => setBlurBox({ ...blurBox, type: e.target.value })}
-                            className="w-full bg-[#141518] border border-[#2b2c32] rounded px-2 py-1.5 text-xs text-white focus:border-[#f5a623] outline-none"
-                          >
-                            <option value="blur">Blur Gauss Siêu Mờ (Xóa sạch chữ - Khuyên dùng)</option>
-                            <option value="box">Băng Đen Điện Ảnh (Solid Black Strip - Rạp phim)</option>
-                            <option value="mosaic">Vỡ hạt Pixel (Mosaic / AI Inpainting)</option>
-                          </select>
-                        </div>
-
-                        {/* Blur Strength Slider */}
-                        {blurBox.type === 'blur' && (
+                        {/* Padding Start / End (Đệm đầu / Đệm cuối) */}
+                        <div className="pt-2 border-t border-[#2b2c32] grid grid-cols-2 gap-2">
                           <div>
-                            <div className="flex justify-between text-[11px] mb-1">
-                              <span className="text-[#8b8d97]">Độ mờ Gauss (Blur Intensity):</span>
-                              <span className="text-[#f5a623] font-bold font-mono">{blurBox.blur_radius || 38} px</span>
+                            <div className="flex justify-between text-[10px] text-[#8b8d97] mb-1">
+                              <span>Đệm đầu:</span>
+                              <span className="text-[#f5a623] font-bold font-mono">{(blurBox.pad_start ?? 0.10).toFixed(2)}s</span>
                             </div>
                             <input
                               type="range"
-                              min="15"
-                              max="60"
-                              step="1"
-                              value={blurBox.blur_radius || 38}
-                              onChange={e => setBlurBox({ ...blurBox, blur_radius: parseInt(e.target.value) })}
+                              min="0"
+                              max="0.5"
+                              step="0.02"
+                              value={blurBox.pad_start ?? 0.10}
+                              onChange={e => setBlurBox({ ...blurBox, pad_start: parseFloat(e.target.value) })}
                               className="w-full accent-[#f5a623] cursor-pointer"
                             />
-                            <div className="flex justify-between text-[9px] text-[#8b8d97] mt-0.5 font-mono">
-                              <span>Nhẹ (15px)</span>
-                              <span>Chuẩn (38px)</span>
-                              <span>Cực mạnh (60px)</span>
+                          </div>
+                          <div>
+                            <div className="flex justify-between text-[10px] text-[#8b8d97] mb-1">
+                              <span>Đệm cuối:</span>
+                              <span className="text-[#f5a623] font-bold font-mono">{(blurBox.pad_end ?? 0.10).toFixed(2)}s</span>
                             </div>
-                          </div>
-                        )}
-
-                        {/* Opacity Slider */}
-                        <div>
-                          <div className="flex justify-between text-[11px] mb-1">
-                            <span className="text-[#8b8d97]">Độ đậm che phủ (Opacity):</span>
-                            <span className="text-[#f5a623] font-bold font-mono">{Math.round((blurBox.opacity ?? 0.85) * 100)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.10"
-                            max="1.0"
-                            step="0.02"
-                            value={blurBox.opacity ?? 0.85}
-                            onChange={e => setBlurBox({ ...blurBox, opacity: parseFloat(e.target.value) })}
-                            className="w-full accent-[#f5a623] cursor-pointer"
-                          />
-                        </div>
-
-                        {/* Quick Position Presets */}
-                        <div>
-                          <label className="text-[11px] text-[#8b8d97] block mb-1.5">Vị trí & Kích thước nhanh</label>
-                          <div className="grid grid-cols-2 gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handlePresetBlur('bottom_fit')}
-                              className="py-1.5 px-2 bg-[#24252a] hover:bg-[#2d2e35] text-white rounded text-[11px] border border-[#3b3d47] transition flex items-center justify-center space-x-1"
-                            >
-                              <span>Vừa vặn đáy</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handlePresetBlur('full_width')}
-                              className="py-1.5 px-2 bg-[#24252a] hover:bg-[#2d2e35] text-white rounded text-[11px] border border-[#3b3d47] transition flex items-center justify-center space-x-1"
-                            >
-                              <span>Đầy chiều ngang</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handlePresetBlur('zoom_in')}
-                              className="py-1 px-2 bg-[#24252a] hover:bg-[#2d2e35] text-white rounded text-[11px] border border-[#3b3d47] transition"
-                            >
-                              Phóng to (+10%)
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handlePresetBlur('zoom_out')}
-                              className="py-1 px-2 bg-[#24252a] hover:bg-[#2d2e35] text-white rounded text-[11px] border border-[#3b3d47] transition"
-                            >
-                              Thu nhỏ (-10%)
-                            </button>
+                            <input
+                              type="range"
+                              min="0"
+                              max="0.5"
+                              step="0.02"
+                              value={blurBox.pad_end ?? 0.10}
+                              onChange={e => setBlurBox({ ...blurBox, pad_end: parseFloat(e.target.value) })}
+                              className="w-full accent-[#f5a623] cursor-pointer"
+                            />
                           </div>
                         </div>
 
-                        {/* Margin Vertical Slider for Subtitles */}
-                        <div className="pt-2 border-t border-[#24252a]">
+                        <p className="text-[9px] text-[#8b8d97] leading-relaxed italic">
+                          Hiệu ứng chỉ hiện khi có phụ đề đang hiển thị (kèm đệm thời gian tùy chọn).
+                        </p>
+                      </div>
+
+                      {/* Nới vùng xoá (theo cạnh) */}
+                      <div className="bg-[#141518] p-2.5 rounded border border-[#24252a] space-y-1.5">
+                        <span className="text-[10px] font-bold text-[#c5c7ce] uppercase tracking-wider block">
+                          Nới vùng xoá (theo cạnh - px)
+                        </span>
+                        <div className="grid grid-cols-4 gap-1.5 text-center">
+                          <div>
+                            <label className="text-[9px] text-[#8b8d97] block">Trên</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={blurBox.pad_top ?? 0}
+                              onChange={e => setBlurBox({ ...blurBox, pad_top: parseInt(e.target.value) || 0 })}
+                              className="w-full bg-[#1c1d22] border border-[#2b2c32] rounded px-1 py-0.5 text-[11px] text-white text-center font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] text-[#8b8d97] block">Dưới</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={blurBox.pad_bottom ?? 0}
+                              onChange={e => setBlurBox({ ...blurBox, pad_bottom: parseInt(e.target.value) || 0 })}
+                              className="w-full bg-[#1c1d22] border border-[#2b2c32] rounded px-1 py-0.5 text-[11px] text-white text-center font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] text-[#8b8d97] block">Trái</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={blurBox.pad_left ?? 0}
+                              onChange={e => setBlurBox({ ...blurBox, pad_left: parseInt(e.target.value) || 0 })}
+                              className="w-full bg-[#1c1d22] border border-[#2b2c32] rounded px-1 py-0.5 text-[11px] text-white text-center font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] text-[#8b8d97] block">Phải</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={blurBox.pad_right ?? 0}
+                              onChange={e => setBlurBox({ ...blurBox, pad_right: parseInt(e.target.value) || 0 })}
+                              className="w-full bg-[#1c1d22] border border-[#2b2c32] rounded px-1 py-0.5 text-[11px] text-white text-center font-mono"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Kiểu che mờ */}
+                      <div>
+                        <label className="text-[11px] text-[#8b8d97] block mb-1">Kiểu che mờ phụ đề cũ</label>
+                        <select
+                          value={blurBox.type}
+                          onChange={e => setBlurBox({ ...blurBox, type: e.target.value })}
+                          className="w-full bg-[#141518] border border-[#2b2c32] rounded px-2 py-1.5 text-xs text-white focus:border-[#f5a623] outline-none"
+                        >
+                          <option value="blur">Blur Gauss Siêu Mờ (Xóa sạch chữ - Khuyên dùng)</option>
+                          <option value="box">Băng Đen Điện Ảnh (Solid Black Strip - Rạp phim)</option>
+                          <option value="mosaic">Vỡ hạt Pixel (Mosaic / AI Inpainting)</option>
+                        </select>
+                      </div>
+
+                      {blurBox.type === 'blur' && (
+                        <div>
                           <div className="flex justify-between text-[11px] mb-1">
-                            <span className="text-[#8b8d97]">Khoảng cách lề dưới phụ đề (Margin V):</span>
-                            <span className="text-[#f5a623] font-bold font-mono">{subStyle.margin_v} px</span>
+                            <span className="text-[#8b8d97]">Độ mờ Gauss (Blur Intensity):</span>
+                            <span className="text-[#f5a623] font-bold font-mono">{blurBox.blur_radius || 38} px</span>
                           </div>
                           <input
                             type="range"
                             min="15"
-                            max="120"
-                            step="2"
-                            value={subStyle.margin_v}
-                            onChange={e => setSubStyle({ ...subStyle, margin_v: parseInt(e.target.value) })}
+                            max="60"
+                            step="1"
+                            value={blurBox.blur_radius || 38}
+                            onChange={e => setBlurBox({ ...blurBox, blur_radius: parseInt(e.target.value) })}
                             className="w-full accent-[#f5a623] cursor-pointer"
                           />
                         </div>
+                      )}
+
+                      <div>
+                        <div className="flex justify-between text-[11px] mb-1">
+                          <span className="text-[#8b8d97]">Độ đậm che phủ (Opacity):</span>
+                          <span className="text-[#f5a623] font-bold font-mono">{Math.round((blurBox.opacity ?? 0.85) * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.10"
+                          max="1.0"
+                          step="0.02"
+                          value={blurBox.opacity ?? 0.85}
+                          onChange={e => setBlurBox({ ...blurBox, opacity: parseFloat(e.target.value) })}
+                          className="w-full accent-[#f5a623] cursor-pointer"
+                        />
                       </div>
                     </div>
-                  </>
+                  ) : (
+                    /* propertyTarget === 'blur' && propsSubTab === 'pos' */
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[11px] text-[#8b8d97] block mb-1.5 font-bold uppercase tracking-wider">
+                          Vị trí & Kích thước nhanh
+                        </label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handlePresetBlur('bottom_fit')}
+                            className="py-1.5 px-2 bg-[#24252a] hover:bg-[#2d2e35] text-white rounded text-[11px] border border-[#3b3d47] transition flex items-center justify-center space-x-1"
+                          >
+                            <span>Vừa vặn đáy</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handlePresetBlur('full_width')}
+                            className="py-1.5 px-2 bg-[#24252a] hover:bg-[#2d2e35] text-white rounded text-[11px] border border-[#3b3d47] transition flex items-center justify-center space-x-1"
+                          >
+                            <span>Đầy chiều ngang</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handlePresetBlur('zoom_in')}
+                            className="py-1 px-2 bg-[#24252a] hover:bg-[#2d2e35] text-white rounded text-[11px] border border-[#3b3d47] transition"
+                          >
+                            Phóng to (+10%)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handlePresetBlur('zoom_out')}
+                            className="py-1 px-2 bg-[#24252a] hover:bg-[#2d2e35] text-white rounded text-[11px] border border-[#3b3d47] transition"
+                          >
+                            Thu nhỏ (-10%)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Precise BlurBox Position Sliders */}
+                      <div>
+                        <div className="flex justify-between text-[11px] mb-1">
+                          <span className="text-[#8b8d97]">Vị trí dọc Y:</span>
+                          <span className="text-[#f5a623] font-mono">{Math.round((blurBox.y_pct ?? 0.77) * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.1"
+                          max="0.9"
+                          step="0.01"
+                          value={blurBox.y_pct ?? 0.77}
+                          onChange={e => setBlurBox({ ...blurBox, y_pct: parseFloat(e.target.value) })}
+                          className="w-full accent-[#f5a623] cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-[11px] mb-1">
+                          <span className="text-[#8b8d97]">Chiều cao H:</span>
+                          <span className="text-[#f5a623] font-mono">{Math.round((blurBox.h_pct ?? 0.15) * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.05"
+                          max="0.4"
+                          step="0.01"
+                          value={blurBox.h_pct ?? 0.15}
+                          onChange={e => setBlurBox({ ...blurBox, h_pct: parseFloat(e.target.value) })}
+                          className="w-full accent-[#f5a623] cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  )
                 )}
               </div>
             </div>

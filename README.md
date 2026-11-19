@@ -38,10 +38,17 @@ Hệ thống tự động hóa hoàn toàn quy trình:
 - **Chế độ Tắt/Bật lồng tiếng linh hoạt**: Cho phép người dùng tắt giọng đọc chỉ bằng 1 cú nhấp chuột để dùng studio như một công cụ chuyên bóc băng và dịch văn bản phụ đề thuần túy.
 - **Kho giọng phong phú**: Microsoft Edge-TTS (Hoài My, Nam Minh) và giọng đọc CapCut (Dễ Thương, Duy Bắc, Anh Dũng...).
 
-### 4. 🎛️ Timeline đa rãnh phong cách CapCut & Premiere
-- **Thu phóng liên tục đến 25x**: Kéo dãn timeline thoải mái để căn chỉnh từng mili-giây câu thoại hoặc lướt nhanh tổng quan video.
-- **Kéo xê dịch phụ đề trực quan (Drag & Drop)**: Nhấp chuột trực tiếp lên màn hình video để kéo chữ phụ đề dịch và khung làm mờ sub cũ đến bất kỳ vị trí mong muốn.
-- **Chỉnh sửa toàn diện**: Thêm câu mới, Tách câu tại vị trí con trỏ chuột, Xóa câu, Đổi giọng đọc từng câu riêng biệt.
+### 4. 🎛️ Giao diện EzmaxSub Studio v2.2 & Thuộc tính kép chuyên nghiệp
+- **Bảng Thuộc tính kép (`PHỤ ĐỀ` & `XÓA PHỤ ĐỀ`)**: Chuyển đổi nhanh 1 chạm để định hình phong cách phụ đề hoặc tinh chỉnh vùng làm mờ che sub cũ:
+  - *Thuộc tính Phụ đề*: Grid 12 kiểu chữ mẫu có sẵn (Vàng viền, Trắng viền, Xanh Neon, Hồng Douyin, Vàng Kim, Đỏ Đậm, Comic...), cỡ chữ, font Arial/Montserrat/Roboto/Be Vietnam Pro, màu chữ, độ dày viền stroke, bộ lọc màu phim Cinematic/Vivid/Warm/Cool/Vintage.
+  - *Thuộc tính Xóa phụ đề*: Công tắc đồng bộ theo câu thoại, thanh trượt đệm đầu (`pad_start`), đệm cuối (`pad_end`), và 4 ô nới vùng xóa theo cạnh (Trên, Dưới, Trái, Phải tính bằng pixel).
+- **Chế độ xem sạch (Clean View Mode) & Nút tắt nhanh 1 chạm**: 
+  - Nút `[✕ Tắt & Ẩn khung]` ở Sidebar và thanh công cụ nổi góc trên-trái video giúp đưa video về trạng thái preview 100% sạch sẽ, sắc nét.
+  - Bổ sung nút bấm `[✕ Tắt]` trực tiếp ngay trên thanh tiêu đề của Khung xanh OCR Region và Khung vàng Xóa phụ đề gốc để đóng tức thì khi không cần thao tác.
+- **Timeline đa rãnh phong cách CapCut & Premiere**:
+  - Thu phóng liên tục từ Fit đến 20x.
+  - Kéo xê dịch phụ đề trực quan (Drag & Drop) trực tiếp trên màn hình video hoặc qua D-Pad 4 hướng và thanh trượt phần trăm X/Y.
+  - Chỉnh sửa toàn diện: Thêm câu mới, Tách câu tại vị trí con trỏ chuột, Xóa câu, Đổi giọng đọc từng câu riêng biệt.
 
 ### 5. 🎞️ Xóa sub gốc (De-sub) & Xuất video Full HD/2K
 - **Làm mờ thông minh (Gaussian Blur / Mosaic)**: Tự động chỉ bật làm mờ khi phụ đề xuất hiện, bảo toàn tối đa vẻ đẹp của khung hình gốc.
