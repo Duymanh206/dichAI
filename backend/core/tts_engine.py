@@ -107,40 +107,27 @@ async def generate_single_tts(
     is_male = any(m in vid for m in ["male", "nam", "dung", "bac"])
 
     # High-quality native Neural Edge-TTS voice mapping
-    if "anh-dung" in vid:
-        edge_voice = "vi-VN-NamMinhNeural"
-        rate_str = "+4%"
-        pitch_str = "-2Hz"
-    elif "duy-bac" in vid:
-        edge_voice = "vi-VN-NamMinhNeural"
-        rate_str = "+7%"
-        pitch_str = "+2Hz"
-    elif "de-thuong" in vid:
-        edge_voice = "vi-VN-HoaiMyNeural"
-        rate_str = "+6%"
-        pitch_str = "+3Hz"
-    elif "chi-mai" in vid:
-        edge_voice = "vi-VN-HoaiMyNeural"
-        rate_str = "-2%"
-        pitch_str = "-1Hz"
-    elif is_male:
-        edge_voice = "vi-VN-NamMinhNeural"
-        rate_str = "+0%"
-        pitch_str = "+0Hz"
-    else:
-        edge_voice = "vi-VN-HoaiMyNeural"
-        rate_str = "+0%"
-        pitch_str = "+0Hz"
+    edge_voice = "vi-VN-NamMinhNeural" if is_male else "vi-VN-HoaiMyNeural"
 
     generated = False
-    # 1. Primary: High-speed Neural Edge-TTS with native tone & rate
-    try:
-        communicate = edge_tts.Communicate(text_clean, edge_voice, rate=rate_str, pitch=pitch_str)
-        await communicate.save(temp_raw)
-        if os.path.exists(temp_raw) and os.path.getsize(temp_raw) > 200:
-            generated = True
-    except Exception as e:
-        print(f"[-] Edge-TTS warning for '{text_clean[:20]}': {e}. Đang chuyển sang Google TTS fallback...")
+    # 1. Primary: High-speed Neural Edge-TTS with auto-retry
+    voices_to_try = [edge_voice]
+    alt_voice = "vi-VN-HoaiMyNeural" if is_male else "vi-VN-NamMinhNeural"
+    voices_to_try.append(edge_voice) # retry same voice once
+    voices_to_try.append(alt_voice)  # try alt voice if edge dropped the first
+
+    for attempt, v in enumerate(voices_to_try):
+        try:
+            communicate = edge_tts.Communicate(text_clean, v)
+            await communicate.save(temp_raw)
+            if os.path.exists(temp_raw) and os.path.getsize(temp_raw) > 200:
+                generated = True
+                break
+        except Exception as e:
+            if attempt < len(voices_to_try) - 1:
+                await asyncio.sleep(0.2)
+            else:
+                print(f"[-] Edge-TTS warning for '{text_clean[:20]}': {e}. Đang chuyển sang Google TTS fallback...")
 
     # 2. Secondary fallback: Google Translate TTS via non-blocking thread
     if not generated:
@@ -168,18 +155,34 @@ async def generate_single_tts(
         gen_duration = info.get("duration", 0.0)
         
         filters = []
-        # Gentle, natural speed compensation (strictly bounded between 0.92x and 1.18x)
-        # Prevents jarring speed rushes ("lúc nhanh lúc chậm")
+        atempo_factor = 1.0
+
+        # CapCut Acoustic Voice Character Transformations
+        if "duy-bac" in vid:
+            filters.append("asetrate=24000*1.05,aresample=24000")
+            atempo_factor *= 0.98
+        elif "anh-dung" in vid:
+            filters.append("asetrate=24000*0.95,aresample=24000")
+            atempo_factor *= 1.03
+        elif "de-thuong" in vid:
+            filters.append("asetrate=24000*1.07,aresample=24000")
+            atempo_factor *= 0.94
+        elif "chi-mai" in vid:
+            filters.append("asetrate=24000*0.98,aresample=24000")
+            atempo_factor *= 0.98
+
+        # Gentle, natural speed compensation (auto-fit duration)
         if auto_fit and target_duration and target_duration > 0.5 and gen_duration > 0:
             speed_ratio = gen_duration / target_duration
             if speed_ratio > 1.04:
-                # Speed up naturally (up to 1.35x) to fit the original dialogue slot
-                factor = min(1.35, speed_ratio)
-                filters.append(f"atempo={factor:.2f}")
+                tempo_adj = min(1.35, speed_ratio)
+                atempo_factor *= tempo_adj
             elif speed_ratio < 0.82:
-                # Slight slow down to fill long slot
-                factor = max(0.88, speed_ratio)
-                filters.append(f"atempo={factor:.2f}")
+                tempo_adj = max(0.88, speed_ratio)
+                atempo_factor *= tempo_adj
+
+        if abs(atempo_factor - 1.0) > 0.02:
+            filters.append(f"atempo={atempo_factor:.2f}")
 
         if filters:
             from .ffmpeg_utils import BINARIES

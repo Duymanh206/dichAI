@@ -8,6 +8,24 @@ import {
   Lock, Unlock, Edit2, PlayCircle, ZoomIn, ZoomOut, Bot, Zap
 } from 'lucide-react';
 
+export const VOICE_CATALOG = [
+  { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My (Nữ)', engine: 'Edge-TTS', desc: 'Truyền cảm, giọng đọc thuyết minh Bắc mượt mà' },
+  { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh (Nam)', engine: 'Edge-TTS', desc: 'Trầm ấm, hào sảng, chuẩn phim tài liệu lịch sử' },
+  { id: 'capcut-duy-bac', name: 'CapCut Duy Bắc (Nam)', engine: 'CapCut', desc: 'Giọng Bắc chuẩn, nói nhanh & năng động Douyin' },
+  { id: 'capcut-anh-dung', name: 'CapCut Anh Dũng (Nam)', engine: 'CapCut', desc: 'Mạnh mẽ, kịch tính review phim gay cấn' },
+  { id: 'capcut-de-thuong', name: 'CapCut Dễ Thương (Nữ)', engine: 'CapCut', desc: 'Ngọt ngào, vui tươi nhí nhảnh TikTok' },
+  { id: 'capcut-chi-mai', name: 'CapCut Chi Mai (Nữ)', engine: 'CapCut', desc: 'Thuyết minh nhẹ nhàng, thanh thoát sâu lắng' }
+];
+
+export const getVoiceInfo = (vid) => {
+  return VOICE_CATALOG.find(v => v.id === vid) || {
+    id: vid || 'vi-VN-HoaiMyNeural',
+    name: vid ? vid.replace('vi-VN-', '').replace('Neural', '') : 'Hoài My (Nữ)',
+    engine: vid?.includes('capcut') ? 'CapCut' : 'Edge-TTS',
+    desc: 'Giọng đọc AI'
+  };
+};
+
 export default function App() {
   // Navigation
   const [navTab, setNavTab] = useState('subs'); // 'home', 'subs', 'dub', 'voice'
@@ -375,16 +393,35 @@ export default function App() {
 
   const playVoicePreview = (sub, e) => {
     if (e) e.stopPropagation();
-    const url = getSubAudioUrl(sub);
-    if (!url) return;
+    const rawUrl = getSubAudioUrl(sub);
+    if (!rawUrl) return;
+    const url = rawUrl.includes('?') ? `${rawUrl}&t=${Date.now()}` : `${rawUrl}?t=${Date.now()}`;
     if (activeAudioRef.current) {
-      activeAudioRef.current.pause();
+      try { activeAudioRef.current.pause(); } catch(err){}
     }
     const a = new Audio(url);
     activeAudioRef.current = a;
     setPlayingVoiceId(sub.id);
     a.play().catch(err => console.warn('Audio play prevented:', err));
     a.onended = () => {
+      setPlayingVoiceId(null);
+    };
+  };
+
+  const playSampleAudio = (voiceId, e) => {
+    if (e) e.stopPropagation();
+    const url = `/temp/voice_samples/${voiceId}.mp3?t=${Date.now()}`;
+    if (activeAudioRef.current) {
+      try { activeAudioRef.current.pause(); } catch(err){}
+    }
+    const a = new Audio(url);
+    activeAudioRef.current = a;
+    setPlayingVoiceId(`sample_${voiceId}`);
+    a.play().catch(err => console.warn('Audio play sample prevented:', err));
+    a.onended = () => {
+      setPlayingVoiceId(null);
+    };
+    a.onerror = () => {
       setPlayingVoiceId(null);
     };
   };
@@ -1161,6 +1198,47 @@ export default function App() {
 
   const handleSaveEditedSub = async () => {
     if (!editingSub || !activeVideoId) return;
+    const originalSub = subtitles.find(s => s.id === editingSub.id);
+    const voiceChanged = originalSub && (editingSub.voice_id && editingSub.voice_id !== (originalSub.voice_id || selectedVoice));
+    const textChanged = originalSub && (editingSub.translated_text !== originalSub.translated_text);
+    const needsTts = (voiceChanged || textChanged || !editingSub.audio_file);
+
+    if (needsTts && editingSub.translated_text?.trim()) {
+      setIsGeneratingSingle(true);
+      try {
+        const vId = editingSub.voice_id || selectedVoice;
+        const res = await fetch('/api/tts/single', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            video_id: activeVideoId,
+            sub_id: editingSub.id,
+            text: editingSub.translated_text || editingSub.text,
+            voice_id: vId,
+            auto_fit: autoFitDuration
+          })
+        });
+        const data = await res.json();
+        if (data.success && data.subtitle) {
+          setVideos(prev => prev.map(v => {
+            if (v.id === activeVideoId) {
+              return {
+                ...v,
+                subtitles: v.subtitles.map(s => s.id === editingSub.id ? data.subtitle : s)
+              };
+            }
+            return v;
+          }));
+          setEditingSub(null);
+          return;
+        }
+      } catch (err) {
+        console.error('Lỗi tự động tạo voice khi lưu:', err);
+      } finally {
+        setIsGeneratingSingle(false);
+      }
+    }
+
     const updated = subtitles.map(s => s.id === editingSub.id ? editingSub : s);
     try {
       await fetch('/api/subtitles/save', {
@@ -1659,22 +1737,28 @@ export default function App() {
                   </label>
                   <div className="bg-[#141518] border border-[#2b2c32] rounded-lg p-2.5 flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00d2ff] to-[#0077ff] flex items-center justify-center text-black font-black text-xs">
-                        {selectedVoice.includes('HoaiMy') ? 'HM' : selectedVoice.includes('NamMinh') ? 'NM' : 'CP'}
-                      </div>
-                      <div>
-                        <div className="font-bold text-white text-xs flex items-center space-x-1.5">
-                          <span>
-                            {selectedVoice.includes('HoaiMy') ? 'Hoài My' : selectedVoice.includes('NamMinh') ? 'Nam Minh' : 'CapCut Voice'}
-                          </span>
-                          <span className="text-[9px] bg-[#00d2ff]/20 text-[#00d2ff] px-1 py-0.2 rounded font-sans font-bold">
-                            CAPCUT
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-[#8b8d97]">
-                          {selectedVoice.includes('HoaiMy') ? 'Nữ - Truyền cảm / Kể chuyện' : 'Nam - Trầm ấm / Lôi cuốn'}
-                        </div>
-                      </div>
+                      {(() => {
+                        const vInfo = getVoiceInfo(selectedVoice);
+                        const initials = vInfo.engine === 'CapCut' ? 'CP' : vInfo.name.includes('Hoài') ? 'HM' : 'NM';
+                        return (
+                          <>
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00d2ff] to-[#0077ff] flex items-center justify-center text-black font-black text-xs shrink-0">
+                              {initials}
+                            </div>
+                            <div className="overflow-hidden">
+                              <div className="font-bold text-white text-xs flex items-center space-x-1.5">
+                                <span className="truncate">{vInfo.name}</span>
+                                <span className="text-[9px] bg-[#00d2ff]/20 text-[#00d2ff] px-1 py-0.2 rounded font-sans font-bold shrink-0">
+                                  {vInfo.engine}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-[#8b8d97] truncate max-w-[140px]">
+                                {vInfo.desc}
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
 
                     <button
@@ -3516,29 +3600,39 @@ export default function App() {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 max-h-80 overflow-y-auto">
-              {[
-                { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My (Nữ)', engine: 'Edge TTS', desc: 'Truyền cảm, giọng đọc thuyết minh Bắc tự nhiên' },
-                { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh (Nam)', engine: 'Edge TTS', desc: 'Trầm ấm, hào sảng, chuẩn phim tài liệu' },
-                { id: 'capcut-de-thuong', name: 'Dễ Thương (Nữ CapCut)', engine: 'CapCut', desc: 'Giọng đọc Douyin/TikTok tươi trẻ' },
-                { id: 'capcut-anh-dung', name: 'Anh Dũng (Nam CapCut)', engine: 'CapCut', desc: 'Kể chuyện kịch tính, review phim' },
-                { id: 'capcut-chi-mai', name: 'Chi Mai (Nữ CapCut)', engine: 'CapCut', desc: 'Ngọt ngào, nhẹ nhàng' },
-                { id: 'capcut-duy-bac', name: 'Duy Bắc (Nam Bắc)', engine: 'CapCut', desc: 'Giọng đọc nhanh, năng động' }
-              ].map(voice => (
+            <div className="grid grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
+              {VOICE_CATALOG.map(voice => (
                 <div
                   key={voice.id}
                   onClick={() => { setSelectedVoice(voice.id); setShowVoicePicker(false); }}
                   className={`p-3 rounded-lg border text-xs cursor-pointer transition ${
                     selectedVoice === voice.id 
-                      ? 'bg-[#25262c] border-[#f5a623]' 
+                      ? 'bg-[#25262c] border-[#f5a623] shadow-md ring-1 ring-[#f5a623]/40' 
                       : 'bg-[#141518] border-[#2b2c32] hover:border-[#3e404b]'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-white">{voice.name}</span>
-                    <span className="text-[10px] bg-[#2b2c32] text-[#f5a623] px-1.5 py-0.5 rounded font-mono">
-                      {voice.engine}
+                    <span className={`font-bold ${selectedVoice === voice.id ? 'text-[#f5a623]' : 'text-white'}`}>
+                      {voice.name}
                     </span>
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => playSampleAudio(voice.id, e)}
+                        className={`px-1.5 py-0.5 rounded text-[10px] flex items-center space-x-1 ${
+                          playingVoiceId === `sample_${voice.id}`
+                            ? 'bg-[#10b981] text-black font-bold animate-pulse'
+                            : 'bg-[#2b2c32] text-[#00d2ff] hover:bg-[#383a45]'
+                        }`}
+                        title="Nghe giọng mẫu"
+                      >
+                        <Volume2 className="w-3 h-3" />
+                        <span>{playingVoiceId === `sample_${voice.id}` ? 'Đang đọc...' : 'Thử'}</span>
+                      </button>
+                      <span className="text-[10px] bg-[#2b2c32] text-[#f5a623] px-1.5 py-0.5 rounded font-mono">
+                        {voice.engine}
+                      </span>
+                    </div>
                   </div>
                   <p className="text-[11px] text-[#8b8d97]">{voice.desc}</p>
                 </div>
@@ -3825,37 +3919,54 @@ export default function App() {
 
               {/* Choose CapCut / Edge Voice */}
               <div>
-                <label className="text-[11px] font-bold text-[#00d2ff] block mb-1.5 flex items-center space-x-1.5">
-                  <Volume2 className="w-3.5 h-3.5" />
-                  <span>Chọn giọng đọc cho câu này (Kho giọng CapCut & Edge-TTS):</span>
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-bold text-[#00d2ff] flex items-center space-x-1.5">
+                    <Volume2 className="w-3.5 h-3.5" />
+                    <span>Chọn giọng đọc cho câu này (Kho giọng CapCut & Edge-TTS):</span>
+                  </label>
+                  <span className="text-[10px] text-[#f5a623] font-semibold">
+                    Đang chọn: {getVoiceInfo(editingSub.voice_id || selectedVoice).name}
+                  </span>
+                </div>
                 <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                  {[
-                    { id: 'capcut-de-thuong', name: 'CapCut Dễ Thương (Nữ)', engine: 'CapCut', desc: 'Ngọt ngào, Douyin/TikTok vui tươi' },
-                    { id: 'capcut-anh-dung', name: 'CapCut Anh Dũng (Nam)', engine: 'CapCut', desc: 'Mạnh mẽ, hùng hồn, review kịch tính' },
-                    { id: 'capcut-chi-mai', name: 'CapCut Chi Mai (Nữ)', engine: 'CapCut', desc: 'Thuyết minh nhẹ nhàng, truyền cảm' },
-                    { id: 'capcut-duy-bac', name: 'CapCut Duy Bắc (Nam)', engine: 'CapCut', desc: 'Giọng Bắc chuẩn, nhanh & năng động' },
-                    { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My (Nữ)', engine: 'Edge-TTS', desc: 'Truyền cảm mượt mà, chuẩn phim bộ' },
-                    { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh (Nam)', engine: 'Edge-TTS', desc: 'Trầm ấm, hào sảng, tài liệu lịch sử' },
-                  ].map(v => (
-                    <div
-                      key={v.id}
-                      onClick={() => setEditingSub({ ...editingSub, voice_id: v.id })}
-                      className={`p-2 rounded-lg border cursor-pointer transition ${
-                        (editingSub.voice_id || selectedVoice) === v.id
-                          ? 'bg-[#00d2ff]/15 border-[#00d2ff] text-white shadow'
-                          : 'bg-[#141518] border-[#24252a] hover:border-[#383a44] text-[#8b8d97]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className={`font-bold text-[11px] ${(editingSub.voice_id || selectedVoice) === v.id ? 'text-[#00d2ff]' : 'text-white'}`}>
-                          {v.name}
-                        </span>
-                        <span className="text-[9px] px-1 bg-[#202127] rounded text-[#8b8d97] font-mono">{v.engine}</span>
+                  {VOICE_CATALOG.map(v => {
+                    const isSelected = (editingSub.voice_id || selectedVoice) === v.id;
+                    return (
+                      <div
+                        key={v.id}
+                        onClick={() => setEditingSub({ ...editingSub, voice_id: v.id })}
+                        className={`p-2 rounded-lg border cursor-pointer transition relative ${
+                          isSelected
+                            ? 'bg-[#00d2ff]/15 border-[#00d2ff] text-white shadow ring-1 ring-[#00d2ff]/50'
+                            : 'bg-[#141518] border-[#24252a] hover:border-[#383a44] text-[#8b8d97]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className={`font-bold text-[11px] flex items-center space-x-1 ${isSelected ? 'text-[#00d2ff]' : 'text-white'}`}>
+                            {isSelected && <Check className="w-3 h-3 text-[#00d2ff] inline shrink-0" />}
+                            <span>{v.name}</span>
+                          </span>
+                          <div className="flex items-center space-x-1">
+                            <button
+                              type="button"
+                              onClick={(e) => playSampleAudio(v.id, e)}
+                              className={`px-1.5 py-0.5 rounded text-[9px] flex items-center space-x-0.5 transition ${
+                                playingVoiceId === `sample_${v.id}`
+                                  ? 'bg-[#10b981] text-black font-bold animate-pulse'
+                                  : 'bg-[#202127] text-[#00d2ff] hover:bg-[#2e303a]'
+                              }`}
+                              title="Nghe thử giọng mẫu này"
+                            >
+                              <Volume2 className="w-2.5 h-2.5" />
+                              <span>{playingVoiceId === `sample_${v.id}` ? 'Đang đọc...' : 'Thử'}</span>
+                            </button>
+                            <span className="text-[9px] px-1 bg-[#202127] rounded text-[#8b8d97] font-mono">{v.engine}</span>
+                          </div>
+                        </div>
+                        <p className="text-[10px] leading-tight opacity-80">{v.desc}</p>
                       </div>
-                      <p className="text-[10px] leading-tight opacity-80">{v.desc}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -3874,7 +3985,7 @@ export default function App() {
                         }`}
                       >
                         <Volume2 className="w-3.5 h-3.5" />
-                        <span>{playingVoiceId === editingSub.id ? 'Đang đọc...' : 'Nghe thử'}</span>
+                        <span>{playingVoiceId === editingSub.id ? 'Đang đọc...' : 'Nghe thử câu này'}</span>
                       </button>
                       <button
                         type="button"
@@ -3887,7 +3998,7 @@ export default function App() {
                       </button>
                     </>
                   ) : (
-                    <span className="text-rose-400 text-[11px] italic">Chưa có âm thanh</span>
+                    <span className="text-rose-400 text-[11px] italic">Chưa có file âm thanh</span>
                   )}
                 </div>
 
@@ -3906,16 +4017,17 @@ export default function App() {
                     ) : (
                       <>
                         <Sparkles className="w-3.5 h-3.5" />
-                        <span>Tạo lại giọng CapCut này</span>
+                        <span>Tạo voice câu này</span>
                       </>
                     )}
                   </button>
                   <button
                     type="button"
                     onClick={handleSaveEditedSub}
-                    className="px-4 py-1.5 bg-[#f5a623] hover:bg-[#e09415] text-black font-bold rounded text-xs shadow transition active:scale-95"
+                    disabled={isGeneratingSingle}
+                    className="px-4 py-1.5 bg-[#f5a623] hover:bg-[#e09415] text-black font-bold rounded text-xs shadow transition active:scale-95 disabled:opacity-50"
                   >
-                    Lưu & Đóng
+                    {isGeneratingSingle ? 'Đang lưu & tạo...' : 'Lưu & Đóng'}
                   </button>
                 </div>
               </div>
