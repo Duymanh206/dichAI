@@ -1522,38 +1522,10 @@ export default function App() {
 
       {/* MAIN WORKSPACE: 3 COLUMNS */}
       <div className="flex-1 flex overflow-hidden">
-        {/* 2. LEFT SIDEBAR PANEL (ezmaxsub Studio v2.2.2 Dual-Tab) */}
+        {/* 2. LEFT SIDEBAR PANEL (EzmaxSub Studio All-in-One Sidebar) */}
         <div className="w-[320px] bg-[#1a1b1f] border-r border-[#24252a] flex flex-col shrink-0 select-none">
-          {/* Top Switcher Tabs: [Phụ đề] & [Thuyết minh] */}
-          <div className="flex border-b border-[#24252a] bg-[#141518] shrink-0">
-            <button
-              onClick={() => setLeftTab('subs')}
-              className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center space-x-1.5 border-b-2 transition ${
-                leftTab === 'subs'
-                  ? 'border-[#f5a623] text-[#f5a623] bg-[#1a1b1f]'
-                  : 'border-transparent text-[#8b8d97] hover:text-white hover:bg-[#1a1b1f]/50'
-              }`}
-            >
-              <Type className="w-3.5 h-3.5" />
-              <span>Phụ đề</span>
-            </button>
-            <button
-              onClick={() => setLeftTab('dub')}
-              className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center space-x-1.5 border-b-2 transition ${
-                leftTab === 'dub'
-                  ? 'border-[#f5a623] text-[#f5a623] bg-[#1a1b1f]'
-                  : 'border-transparent text-[#8b8d97] hover:text-white hover:bg-[#1a1b1f]/50'
-              }`}
-            >
-              <Mic className="w-3.5 h-3.5" />
-              <span>Thuyết minh</span>
-            </button>
-          </div>
-
           <div className="flex-1 overflow-y-auto">
-            {leftTab === 'subs' ? (
-              <>
-                {/* Section: Nhận dạng giọng nói / OCR */}
+            {/* Section 1: Nhận dạng giọng nói / OCR */}
                 <div className="p-3 border-b border-[#24252a]">
                   <span className="text-xs font-bold uppercase tracking-wider text-[#f5a623] flex items-center space-x-1.5 mb-2.5">
                     <Sparkles className="w-3.5 h-3.5" />
@@ -1916,10 +1888,8 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-              </>
-            ) : (
-              /* TAB 2: THUYẾT MINH & LỒNG TIẾNG */
-              <div className="p-3 space-y-4 text-xs">
+            {/* Section 3: THUYẾT MINH & LỒNG TIẾNG AI */}
+            <div className="p-3 border-b border-[#24252a] space-y-4 text-xs">
                 {/* Sub-tabs: [Một giọng] / [Phân vai] */}
                 <div className="flex bg-[#141518] p-0.5 rounded-lg border border-[#2b2c32]">
                   <button
@@ -2100,7 +2070,6 @@ export default function App() {
                   )}
                 </div>
               </div>
-            )}
           </div>
         </div>
 
@@ -2960,19 +2929,8 @@ export default function App() {
 
         {/* 4. RIGHT SIDEBAR PANEL (ezmaxsub Studio v2.2.2 Dual-Tab) */}
         <div className="w-[360px] bg-[#1a1b1f] border-l border-[#24252a] flex flex-col shrink-0 select-none">
-          {/* Top Tabs: [Phụ đề] & [Thuộc tính] */}
+          {/* Top Tabs: [Kiểu chữ & Xóa Sub] & [Danh sách (X)] */}
           <div className="flex border-b border-[#24252a] bg-[#141518]">
-            <button
-              onClick={() => setActiveRightTab('subs')}
-              className={`flex-1 py-2.5 text-xs font-bold text-center border-b-2 transition flex items-center justify-center space-x-1.5 ${
-                activeRightTab === 'subs' 
-                  ? 'border-[#f5a623] text-[#f5a623] bg-[#1a1b1f]' 
-                  : 'border-transparent text-[#8b8d97] hover:text-white'
-              }`}
-            >
-              <Type className="w-3.5 h-3.5" />
-              <span>Phụ đề ({subtitles.length})</span>
-            </button>
             <button
               onClick={() => setActiveRightTab('style')}
               className={`flex-1 py-2.5 text-xs font-bold text-center border-b-2 transition flex items-center justify-center space-x-1.5 ${
@@ -2981,8 +2939,17 @@ export default function App() {
                   : 'border-transparent text-[#8b8d97] hover:text-white'
               }`}
             >
-              <Settings className="w-3.5 h-3.5" />
-              <span>Thuộc tính</span>
+              <span>Kiểu chữ & Xóa Sub</span>
+            </button>
+            <button
+              onClick={() => setActiveRightTab('subs')}
+              className={`flex-1 py-2.5 text-xs font-bold text-center border-b-2 transition flex items-center justify-center space-x-1.5 ${
+                activeRightTab === 'subs' 
+                  ? 'border-[#f5a623] text-[#f5a623] bg-[#1a1b1f]' 
+                  : 'border-transparent text-[#8b8d97] hover:text-white'
+              }`}
+            >
+              <span>Danh sách ({subtitles.length})</span>
             </button>
           </div>
 
