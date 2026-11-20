@@ -16,13 +16,9 @@ for _p in [_curr_dir, _backend_dir]:
 try:
     from backend.core.ffmpeg_utils import BINARIES, get_video_info, adjust_audio_speed
     from backend.core.smart_aligner import smart_decollide_and_align_subtitles, apply_broadcast_voice_mastering
-except (ImportError, ModuleNotFoundError, ValueError):
-    try:
-        from core.ffmpeg_utils import BINARIES, get_video_info, adjust_audio_speed
-        from core.smart_aligner import smart_decollide_and_align_subtitles, apply_broadcast_voice_mastering
-    except (ImportError, ModuleNotFoundError, ValueError):
-        from ffmpeg_utils import BINARIES, get_video_info, adjust_audio_speed
-        from smart_aligner import smart_decollide_and_align_subtitles, apply_broadcast_voice_mastering
+except ImportError:
+    from .ffmpeg_utils import BINARIES, get_video_info, adjust_audio_speed
+    from .smart_aligner import smart_decollide_and_align_subtitles, apply_broadcast_voice_mastering
 
 # Predefined available voices
 AVAILABLE_VOICES = [

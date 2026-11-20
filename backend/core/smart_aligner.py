@@ -19,13 +19,9 @@ for _p in [_curr_dir, _backend_dir]:
 try:
     from backend.core.ffmpeg_utils import BINARIES, get_video_info
     from backend.core.gemini_asr import get_available_gemini_models, extract_json_data
-except (ImportError, ModuleNotFoundError, ValueError):
-    try:
-        from core.ffmpeg_utils import BINARIES, get_video_info
-        from core.gemini_asr import get_available_gemini_models, extract_json_data
-    except (ImportError, ModuleNotFoundError, ValueError):
-        from ffmpeg_utils import BINARIES, get_video_info
-        from gemini_asr import get_available_gemini_models, extract_json_data
+except ImportError:
+    from .ffmpeg_utils import BINARIES, get_video_info
+    from .gemini_asr import get_available_gemini_models, extract_json_data
 
 
 def detect_speech_intervals(video_path: str, silence_threshold_db: float = -32.0, min_silence_dur: float = 0.6) -> List[Tuple[float, float]]:

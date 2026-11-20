@@ -13,11 +13,8 @@ for _p in [_curr_dir, _backend_dir]:
 
 try:
     from backend.core.ffmpeg_utils import BINARIES, get_video_info
-except (ImportError, ModuleNotFoundError, ValueError):
-    try:
-        from core.ffmpeg_utils import BINARIES, get_video_info
-    except (ImportError, ModuleNotFoundError, ValueError):
-        from ffmpeg_utils import BINARIES, get_video_info
+except ImportError:
+    from .ffmpeg_utils import BINARIES, get_video_info
 
 def generate_ass_subtitle_file(
     subtitles: List[Dict[str, Any]],
@@ -53,13 +50,13 @@ def generate_ass_subtitle_file(
         hours = int(sec // 3600)
         minutes = int((sec % 3600) // 60)
         seconds = int(sec % 60)
-        centisecs = int(round((sec - int(sec)) * 100))
+        centisecs = round((sec - int(sec)) * 100)
         return f"{hours:d}:{minutes:02d}:{seconds:02d}.{centisecs:02d}"
 
     # Scale typography relative to standard 576p height
     scale_factor = max(0.6, video_height / 576.0)
-    ass_fontsize = max(16, int(round(font_size * scale_factor)))
-    ass_out_width = max(1, int(round(outline_width * scale_factor)))
+    ass_fontsize = max(16, round(font_size * scale_factor))
+    ass_out_width = max(1, round(outline_width * scale_factor))
 
     header = f"""[Script Info]
 Title: AutoSub Studio Export
@@ -81,8 +78,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     pos_tag = ""
     if pos_x_pct is not None and pos_y_pct is not None:
         try:
-            px = int(round(video_width * float(pos_x_pct)))
-            py = int(round(video_height * float(pos_y_pct)))
+            px = round(video_width * float(pos_x_pct))
+            py = round(video_height * float(pos_y_pct))
             # \an5 places center of text box at (px, py)
             pos_tag = f"{{\\an5\\pos({px},{py})}}"
         except (ValueError, TypeError):

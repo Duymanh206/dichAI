@@ -34,7 +34,7 @@ try:
         find_uncovered_speech_gaps,
         recover_missing_dialogue_with_ai
     )
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from core.ffmpeg_utils import get_video_info, extract_frame_at, generate_filmstrip
     from core.ocr_engine import extract_subtitles_from_video
     from core.gemini_asr import transcribe_with_gemini_sync
@@ -93,7 +93,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-PROJECT_STATE = {
+PROJECT_STATE: Dict[str, Any] = {
     "videos": [],
     "active_video_id": None,
     "batch_mode": False,
@@ -394,9 +394,10 @@ class OcrRequest(BaseModel):
 
 @app.post("/api/ocr")
 async def run_ocr(req: OcrRequest):
-    video = next((v for v in PROJECT_STATE["videos"] if v["id"] == req.video_id), None)
-    if not video:
+    target_video: Optional[Dict[str, Any]] = next((v for v in PROJECT_STATE["videos"] if v["id"] == req.video_id), None)
+    if not target_video:
         return JSONResponse(status_code=404, content={"error": "Video not found"})
+    video: Dict[str, Any] = target_video
         
     crop = req.crop_box or video.get("crop_box")
     video["crop_box"] = crop
@@ -404,6 +405,8 @@ async def run_ocr(req: OcrRequest):
     main_loop = asyncio.get_running_loop()
 
     async def process():
+        if not video:
+            return
         try:
             if "gemini" in req.model.lower():
                 def on_prog(p, msg):
@@ -417,7 +420,7 @@ async def run_ocr(req: OcrRequest):
                     )
                 subs = await asyncio.to_thread(
                     transcribe_with_gemini_sync,
-                    video["path"],
+                    str(video["path"]),
                     api_key=req.api_key,
                     target_language="Vietnamese",
                     model_name="gemini-2.0-flash",
@@ -435,7 +438,7 @@ async def run_ocr(req: OcrRequest):
                     )
                 subs = await asyncio.to_thread(
                     extract_subtitles_from_video,
-                    video["path"],
+                    str(video["path"]),
                     crop,
                     req.fps_sample,
                     on_prog
