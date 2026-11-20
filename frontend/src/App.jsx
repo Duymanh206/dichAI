@@ -5,7 +5,7 @@ import {
   MessageSquare, Mic, Type, Search, Plus, Trash2, 
   Film, X, SkipBack, ArrowRight, BookOpen, VolumeX,
   Move, Crop, CheckCircle2, AlertCircle, FolderOpen,
-  Lock, Unlock, ZoomIn, ZoomOut, Bot, Zap
+  Lock, Unlock, ZoomIn, ZoomOut, Bot, Zap, Loader2
 } from 'lucide-react';
 
 export const VOICE_CATALOG = [
@@ -39,6 +39,8 @@ export default function App() {
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [batchMode, setBatchMode] = useState(false);
   const [selectedSubId, setSelectedSubId] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   // Active video reference
   const activeVideo = videos.find(v => v.id === activeVideoId) || null;
@@ -499,21 +501,96 @@ export default function App() {
     }
   };
 
-  // Video Upload Handler
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
+  // Video Upload & Selection Handlers
+  const uploadVideoFile = async (file) => {
     if (!file) return;
-
     const formData = new FormData();
     formData.append('file', file);
 
     try {
+      setIsUploading(true);
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error(`Lỗi máy chủ: ${res.status}`);
       const newVideo = await res.json();
-      setVideos(prev => [...prev, newVideo]);
+      setVideos(prev => {
+        const filtered = prev.filter(v => v.id !== newVideo.id);
+        return [...filtered, newVideo];
+      });
       setActiveVideoId(newVideo.id);
+      setCurrentTime(0);
+      if (videoRef.current) videoRef.current.currentTime = 0;
     } catch (err) {
       alert('Tải video thất bại: ' + err.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadVideoFile(file);
+    }
+    e.target.value = '';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith('video/') || file.name.match(/\.(mp4|mkv|mov|avi|webm|flv)$/i)) {
+        await uploadVideoFile(file);
+      } else {
+        alert('Vui lòng chọn tệp video hợp lệ (.mp4, .mkv, .mov, .avi, .webm)');
+      }
+    }
+  };
+
+  const handleDeleteCurrentVideo = async () => {
+    if (!activeVideoId) return;
+    if (window.confirm('Bạn có chắc muốn đóng/xóa video này khỏi dự án để chọn video khác không?')) {
+      try {
+        const res = await fetch('/api/videos/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ video_id: activeVideoId })
+        });
+        const data = await res.json();
+        setVideos(data.videos || []);
+        setActiveVideoId(data.active_video_id || null);
+        setCurrentTime(0);
+        if (videoRef.current) videoRef.current.currentTime = 0;
+      } catch (err) {
+        console.error('Lỗi khi xóa video:', err);
+      }
+    }
+  };
+
+  const handleResetProject = async () => {
+    if (window.confirm('Bạn có chắc muốn làm mới toàn bộ dự án và chọn video mới không?')) {
+      try {
+        await fetch('/api/projects/reset', { method: 'POST' });
+        setVideos([]);
+        setActiveVideoId(null);
+        setCurrentTime(0);
+        if (videoRef.current) videoRef.current.currentTime = 0;
+      } catch (err) {
+        console.error('Lỗi khi làm mới dự án:', err);
+      }
     }
   };
 
@@ -1361,40 +1438,74 @@ export default function App() {
         {/* Right Action Buttons */}
         <div className="flex items-center space-x-3">
           {/* Video Selector Dropdown */}
-          <div className="flex items-center space-x-1.5 bg-[#141518] px-2 py-1 rounded-md border border-[#2b2c32] text-[11px]">
-            <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse shrink-0" />
+          <div className="flex items-center space-x-1.5 bg-[#141518] px-2.5 py-1 rounded-md border border-[#2b2c32] text-[11px]">
+            <span className={`w-2 h-2 rounded-full ${activeVideo ? 'bg-[#10b981] animate-pulse' : 'bg-gray-500'} shrink-0`} />
             <select
               value={activeVideoId || ''}
               onChange={e => {
                 const vid = e.target.value;
-                setActiveVideoId(vid);
+                if (vid === '__new__') {
+                  fileInputRef.current?.click();
+                  return;
+                }
+                setActiveVideoId(vid || null);
                 setCurrentTime(0);
                 if (videoRef.current) videoRef.current.currentTime = 0;
               }}
               className="bg-transparent text-white font-semibold text-xs outline-none cursor-pointer max-w-[200px] truncate"
               title="Chọn video để làm việc"
             >
-              {videos.map(v => (
-                <option key={v.id} value={v.id} className="bg-[#1a1b1f] text-white">
-                  {v.title}
-                </option>
-              ))}
+              {videos.length === 0 ? (
+                <option value="" className="bg-[#1a1b1f] text-gray-400">Chưa chọn video</option>
+              ) : (
+                videos.map(v => (
+                  <option key={v.id} value={v.id} className="bg-[#1a1b1f] text-white">
+                    {v.title}
+                  </option>
+                ))
+              )}
+              <option value="__new__" className="bg-[#1a1b1f] text-[#f5a623] font-bold">
+                + Chọn video khác...
+              </option>
             </select>
           </div>
+
+          {/* Delete / Change Current Video */}
+          {activeVideo && (
+            <button
+              onClick={handleDeleteCurrentVideo}
+              title="Đóng / Xóa video hiện tại khỏi dự án để chọn video khác"
+              className="px-2.5 py-1.5 text-xs bg-[#24252a] hover:bg-rose-950/40 text-[#c5c7ce] hover:text-rose-300 rounded-md border border-[#32333b] hover:border-rose-800/60 flex items-center space-x-1.5 transition active:scale-95"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+              <span>Đổi video</span>
+            </button>
+          )}
 
           {/* Open Video */}
           <button 
             onClick={() => fileInputRef.current?.click()} 
-            className="px-3 py-1.5 text-xs bg-[#24252a] hover:bg-[#2f3036] text-[#c5c7ce] hover:text-white rounded-md border border-[#32333b] flex items-center space-x-1.5 transition"
+            disabled={isUploading}
+            className="px-3 py-1.5 text-xs bg-[#24252a] hover:bg-[#2f3036] text-[#c5c7ce] hover:text-white rounded-md border border-[#32333b] flex items-center space-x-1.5 transition active:scale-95 disabled:opacity-50"
+            title="Tải lên hoặc chọn video mới từ máy tính"
           >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Nhập video</span>
+            {isUploading ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 text-[#f5a623] animate-spin" />
+                <span>Đang tải...</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-3.5 h-3.5 text-[#f5a623]" />
+                <span>Nhập video</span>
+              </>
+            )}
           </button>
           <input 
             type="file" 
             ref={fileInputRef} 
             onChange={handleFileUpload} 
-            accept="video/*" 
+            accept="video/*,.mkv,.mp4,.mov,.avi,.webm,.flv" 
             className="hidden" 
           />
 
@@ -2307,16 +2418,75 @@ export default function App() {
                 })()}
               </div>
             ) : (
-              <div className="text-center p-8 border-2 border-dashed border-[#24252a] rounded-xl max-w-md">
-                <Film className="w-12 h-12 text-[#42444e] mx-auto mb-3" />
-                <h3 className="text-sm font-semibold text-white mb-1">Chưa có video nào trong dự án</h3>
-                <p className="text-xs text-[#8b8d97] mb-4">Nhấp "Nhập video" để bắt đầu quy trình làm phụ đề & lồng tiếng</p>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2 bg-[#f5a623] hover:bg-[#e09415] text-black font-bold text-xs rounded-md shadow-lg active:scale-95 transition"
-                >
-                  Tải lên video mới
-                </button>
+              <div 
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`text-center p-10 border-2 border-dashed rounded-2xl max-w-lg w-full transition-all duration-200 select-none ${
+                  isDraggingOver 
+                    ? 'border-[#f5a623] bg-[#f5a623]/10 scale-[1.02] shadow-2xl shadow-amber-500/20' 
+                    : 'border-[#32343f] bg-[#141518]/90 hover:border-[#454857]'
+                }`}
+              >
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#f5a623]/20 to-amber-600/10 border border-[#f5a623]/40 flex items-center justify-center mx-auto mb-4 text-[#f5a623] shadow-lg shadow-amber-500/10">
+                  <Film className="w-8 h-8" />
+                </div>
+                
+                <h3 className="text-base font-bold text-white mb-1.5 tracking-tight">
+                  Tự chọn video để bắt đầu dịch & lồng tiếng
+                </h3>
+                <p className="text-xs text-[#8b8d97] mb-6 max-w-sm mx-auto leading-relaxed">
+                  Kéo thả tệp video vào đây hoặc nhấp chọn bất kỳ video nào từ máy tính của bạn (.mp4, .mkv, .mov, .avi, .webm)
+                </p>
+
+                <div className="flex items-center justify-center space-x-3 mb-6">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="px-6 py-2.5 bg-gradient-to-r from-[#f5a623] to-[#e09415] hover:from-[#f7b036] hover:to-[#e89d1e] text-black font-extrabold text-xs rounded-xl shadow-xl shadow-amber-500/25 active:scale-95 transition flex items-center space-x-2 disabled:opacity-50"
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-black" />
+                        <span>Đang xử lý tải video...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 text-black" />
+                        <span>Chọn video từ máy tính</span>
+                      </>
+                    )}
+                  </button>
+
+                  {videos.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveVideoId(videos[0].id)}
+                      className="px-4 py-2.5 bg-[#24252a] hover:bg-[#2d2e35] text-white font-medium text-xs rounded-xl border border-[#3b3d47] transition active:scale-95"
+                    >
+                      Mở video đã tải ({videos.length})
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick Feature Guidance Badges */}
+                <div className="grid grid-cols-2 gap-2 text-left pt-5 border-t border-[#25262f]">
+                  <div className="flex items-start space-x-2 p-2 rounded-lg bg-[#18191e] border border-[#24252a]">
+                    <Sparkles className="w-4 h-4 text-[#f5a623] shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-[11px] font-bold text-[#c5c7ce]">OCR & Gemini ASR</div>
+                      <div className="text-[10px] text-[#8b8d97]">Trích xuất phụ đề tự động 10x</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2 p-2 rounded-lg bg-[#18191e] border border-[#24252a]">
+                    <Volume2 className="w-4 h-4 text-[#00d2ff] shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-[11px] font-bold text-[#c5c7ce]">Lồng tiếng CapCut AI</div>
+                      <div className="text-[10px] text-[#8b8d97]">Chống dính âm & khớp nhịp</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

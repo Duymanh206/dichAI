@@ -119,46 +119,21 @@ def load_project_state():
                 for v in loaded.get("videos", []):
                     if os.path.exists(v.get("path", "")):
                         valid_videos.append(v)
-                if valid_videos:
-                    PROJECT_STATE["videos"] = valid_videos
-                    PROJECT_STATE["active_video_id"] = loaded.get("active_video_id") or valid_videos[0]["id"]
-                    PROJECT_STATE["batch_mode"] = loaded.get("batch_mode", False)
-                    return
+                PROJECT_STATE["videos"] = valid_videos
+                curr_active = loaded.get("active_video_id")
+                if curr_active and any(v["id"] == curr_active for v in valid_videos):
+                    PROJECT_STATE["active_video_id"] = curr_active
+                else:
+                    PROJECT_STATE["active_video_id"] = valid_videos[0]["id"] if valid_videos else None
+                PROJECT_STATE["batch_mode"] = loaded.get("batch_mode", False)
+                return
         except Exception as e:
             print(f"Error loading project state: {e}")
             
-    # Auto-discover videos from uploads if none loaded
-    for vid_file in sorted(UPLOADS_DIR.glob("*.mp4"), key=os.path.getmtime, reverse=True):
-        f_name = vid_file.name
-        f_id = f_name.split("_")[0] if "_" in f_name else f_name[:8]
-        if not any(v["id"] == f_id for v in PROJECT_STATE["videos"]):
-            try:
-                info = get_video_info(str(vid_file))
-                item = {
-                    "id": f_id,
-                    "title": f_name[len(f_id)+1:] if "_" in f_name else f_name,
-                    "path": str(vid_file),
-                    "url": f"/uploads/{f_name}",
-                    "duration": info["duration"],
-                    "width": info["width"],
-                    "height": info["height"],
-                    "fps": info["fps"],
-                    "subtitles": [],
-                    "crop_box": {"x_pct": 0.05, "y_pct": 0.75, "w_pct": 0.90, "h_pct": 0.20},
-                    "blur_box": {
-                        "enabled": True, "type": "blur",
-                        "x": int(info["width"] * 0.1), "y": int(info["height"] * 0.77),
-                        "w": int(info["width"] * 0.8), "h": int(info["height"] * 0.15),
-                        "sync_subtitles": True
-                    },
-                    "status": "ready",
-                    "filmstrip": generate_filmstrip(str(vid_file), str(TEMP_DIR), count=12)
-                }
-                PROJECT_STATE["videos"].append(item)
-            except Exception:
-                pass
-    if PROJECT_STATE["videos"] and not PROJECT_STATE["active_video_id"]:
-        PROJECT_STATE["active_video_id"] = PROJECT_STATE["videos"][0]["id"]
+    # Default clean state: no pre-assigned or auto-discovered videos
+    PROJECT_STATE["videos"] = []
+    PROJECT_STATE["active_video_id"] = None
+    PROJECT_STATE["batch_mode"] = False
 
 load_project_state()
 
@@ -254,10 +229,35 @@ async def upload_video(file: UploadFile = File(...)):
     }
     
     PROJECT_STATE["videos"].append(video_item)
-    if PROJECT_STATE["active_video_id"] is None:
-        PROJECT_STATE["active_video_id"] = file_id
+    PROJECT_STATE["active_video_id"] = file_id
     save_project_state()
     return video_item
+
+class DeleteVideoRequest(BaseModel):
+    video_id: str
+
+@app.post("/api/videos/delete")
+async def delete_video(req: DeleteVideoRequest):
+    global PROJECT_STATE
+    PROJECT_STATE["videos"] = [v for v in PROJECT_STATE["videos"] if v.get("id") != req.video_id]
+    if PROJECT_STATE.get("active_video_id") == req.video_id:
+        PROJECT_STATE["active_video_id"] = PROJECT_STATE["videos"][0]["id"] if PROJECT_STATE["videos"] else None
+    save_project_state()
+    return {
+        "success": True,
+        "videos": PROJECT_STATE["videos"],
+        "active_video_id": PROJECT_STATE["active_video_id"]
+    }
+
+@app.post("/api/projects/reset")
+async def reset_project():
+    global PROJECT_STATE
+    PROJECT_STATE["videos"] = []
+    PROJECT_STATE["active_video_id"] = None
+    PROJECT_STATE["template_video_id"] = None
+    PROJECT_STATE["batch_mode"] = False
+    save_project_state()
+    return {"success": True, "message": "Project reset successfully"}
 
 @app.get("/api/videos")
 def get_videos():
